@@ -1,0 +1,7 @@
+extends layout.pug
+
+block body
+  h1 Setting up 'le wonderful application stack:
+    ul
+      each item in list
+        li= `${item.name}: ${item.completed ? '✓' : '❌'}`
