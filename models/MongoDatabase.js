@@ -51,7 +51,7 @@ class MongoDatabase extends Database {
   async insert(data, collectionName){
     await super.ensureConnected(collectionName);
 
-    const collection = this.db.collection(collectionName);
+    const collection = await this.db.collection(collectionName);
     let result;
     if(data instanceof Array){
       result = await collection.insertMany(data);
