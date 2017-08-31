@@ -1,4 +1,7 @@
 //Abstract class defining how models should look like
+//You can test whether another model extends it using
+//if(user instanceof Model) OR
+//if(User.prototype instanceof Model) if you don't want to spawn instances
 class Model {  
   constructor(data){    
     this.id = data.id;
@@ -6,11 +9,11 @@ class Model {
     this.updatedAt = data.updatedAt;
   }
 
-  static async find(query, db, collectionName){
+  static async find(){
     throw new Error('Model.find is abstract and must be implemented by subclasses');    
   }
 
-  static async where(query, db, collectionName) {
+  static async where() {
     throw new Error('Model.where is abstract and must be implemented by subclasses');    
   }
 
@@ -34,21 +37,15 @@ class Model {
   async delete(){
     throw new Error('Model.delete is abstract and must be implemented by subclasses');
   }
+
+  serialize(){    
+    if(!this.createdAt){
+      this.createdAt = new Date();      
+    }
+    return {
+      createdAt: this.createdAt,
+      updatedAt: new Date()
+    }
+  }
 }
-
-/*
-make sure to ALWAYS clean up open connections when app dies. On windows versions <10 SIGINT is not sent, you need to use
-this method if running on Windows Server <2012 or Windows <10: 
-const readLine = require('readline');
-if (process.platform === 'win32') {
-  const rl = readLine.createInterface({input: process.stdin, output: process.stdout});
-  rl.on('SIGINT', () => {
-    process.emit("SIGINT");
-  });
-}
-this will backport SIGINT to the process, after which your callback should run fine
-*/
-
-process.on('SIGINT', Model.cleanUp);
-
 module.exports = Model;

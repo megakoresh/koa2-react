@@ -28,6 +28,7 @@
     "babel-preset-es2015": "^6.24.1",
     "babel-preset-react": "^6.24.1",
     "browser-sync": "^2.18.13",
+    "chai": "^4.1.1",
     "css-loader": "^0.28.5",
     "eslint-plugin-react": "^7.2.1",
     "express-to-koa": "^1.0.6",
@@ -35,19 +36,22 @@
     "gulp": "github:gulpjs/gulp#4.0",
     "html-webpack-plugin": "^2.30.1",
     "koa-webpack": "^1.0.0",
+    "mocha": "^3.5.0",
     "node-sass": "^4.5.3",
     "react": "^15.6.1",
     "react-dom": "^15.6.1",
     "react-hot-loader": "^1.3.1",
     "sass-loader": "^6.0.6",
     "style-loader": "^0.18.2",
-    "webpack": "^3.5.5",    
+    "webpack": "^3.5.5",
     "webpack-hot-middleware": "^2.18.2",
     "webpack-module-hot-accept": "^1.0.5",
     "webpack-stream": "^4.0.0"
   },
   "scripts": {
     "dev": "gulp dev",
-    "devserver": "gulp dev && node --inspect app.js"
+    "devserver": "gulp dev && node --inspect app.js",
+    "test": "mocha ./tests/",
+    "debug-test": "mocha --inspect --inspect-brk ./tests/"
   }
 }
