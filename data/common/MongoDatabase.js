@@ -22,16 +22,18 @@ const CONNECTION_POOL = {};
  * have to implement their database classes with these methods
  * otherwise the app won't work and tests won't pass.
  */
+module.exports = 
 class MongoDatabase extends Database {
 
   constructor(url){
     super(url, mongodb);
   }
-
+  //its a good practice to let your database methods accept both
+  //full query and a simple ID. This helps keep your code cleaner
   async select(query, collectionName){
     await super.ensureConnected(collectionName);
 
-    if(typeof query === 'string') query = {_id: query};
+    if(typeof query === 'string') query = {_id: new mongodb.ObjectId(query)};
 
     const collection = this.db.collection(collectionName);
     //One of the reasons why I am not a fan of mongo is it's unconventional
@@ -65,6 +67,8 @@ class MongoDatabase extends Database {
   async update(query, data, collectionName){
     await super.ensureConnected(collectionName);
 
+    if(typeof query === 'string') query = {_id: new mongodb.ObjectId(query)};
+
     const collection = this.db.collection(collectionName);
     //Again an example of inconsistency in the mongo driver
     //while find(), collection() and aggregate() do not perform
@@ -81,6 +85,8 @@ class MongoDatabase extends Database {
 
   async delete(query, collectionName){
     await super.ensureConnected(collectionName);
+
+    if(typeof query === 'string') query = {_id: new mongodb.ObjectId(query)};
 
     const collection = this.db.collection(collectionName);    
     let result = await collection.deleteMany(query);
@@ -123,5 +129,3 @@ class MongoDatabase extends Database {
     return this;
   }
 }
-
-module.exports = MongoDatabase;

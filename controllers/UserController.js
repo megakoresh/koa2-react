@@ -1,5 +1,6 @@
 const Controller = require('./Controller');
 
+module.exports = 
 class UserController extends Controller {
   constructor(router){
     super(router);
@@ -15,5 +16,3 @@ class UserController extends Controller {
 
   }
 }
-
-module.exports = UserController;

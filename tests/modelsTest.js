@@ -1,7 +1,11 @@
 const Utils = require('../utils');
 const expect = require('chai').expect;
-const models = Utils.requireFolder('models', /(Database|^Model)(\.js)/);
 const logger = require('winston');
+
+const { User, Comment } = Utils.requireModels();
+Utils.installGlobal(User, 'User');
+Utils.installGlobal(Comment, 'Comment');
+
 
 /**
  * Tests are the best way to ensure that basic functions of your
@@ -28,7 +32,6 @@ const logger = require('winston');
  */
 
 describe('User model:', async function() {
-  const User = models.User;
   logger.info(`Testing user model. Database ${User.DB.url} and collection ${User.COLLECTION}`);
   it('tests whether connection works', async function() {
     await User.where({username: 'nopestitynopes'}); //this will create the collection implicitly
@@ -91,29 +94,62 @@ describe('User model:', async function() {
     await User.DB.getDb().dropCollection(User.COLLECTION);
   })
 });
-/* Test associations between user and comment
+/* Test associations between user and comment */
 describe('Comment', function() {
-  const Comment = models.Comment;
   logger.info(`Testing comment model. Database ${Comment.DB.url} and collection ${Comment.COLLECTION}`);
   it('tests whether connection works', async function() {
     await Comment.find();
     const count = await Comment.DB.collection(Comment.COLLECTION).count();
-    expect(count).to.be.a('number');
+    expect(count).to.equal(0);
   });
   it('posts a comment as a user', async function(){
-
+    //create a user
+    let user = new User({username: 'XxX_must4p4sk4_XxX'});
+    await user.save();
+    //post a new comment
+    let comment = new Comment({text:'I like trains', user: user.id});
+    user.comments.push(comment);
+    await user.comments.save();
+    let foundComment = Comment.find({user: user.id});
+    expect(foundComment.text).to.equal(comment.text);
   });
   it('posts another comment as a user', async function(){
-
+    let user = await User.find({username: 'XxX_must4p4sk4_XxX'});
+    user.comments.push(new Comment({text: 'N0sc0p3d bi4tch!'}));
+    await user.comments.save();
+    let count = await Comment.count();
+    expect(count).to.equal(2);
   })
   it('likes a random comment', async function(){
-
+    let user = await User.find({username: 'XxX_must4p4sk4_XxX'});
+    let comment = await user.comments[i].get();
+    comment.likes++;
+    await comment.save();
+    comment = await Comment.find(comment.id);
+    expect(comment.likes).to.equal(1);
   })
   it('updates an existing comment', async function(){
-
+    let user = await User.find({username: 'XxX_must4p4sk4_XxX'});
+    let comment = await user.comments[i].get();
+    comment.text = 'Looks like I was really high that time...';
+    await comment.save();
+    comment = await Comment.find(comment.id);
+    expect(comment.text).to.equal('Looks like I was really high that time...');
   })
   it('cleans up all the comments in the database', async function(){
-    
+    let users = await User.where();
+    const toDelete = [];
+    for(let i=0; i<users.length;i++){
+      toDelete.push(users[i].delete()); //should also delete comments
+    }
+    await Promise.all(toDelete);
+    const count = await User.count();
+    expect(count).to.equal(0);
+    const commentCount = await Comment.count();
+    expect(commentCount).to.equal(0);
+    await User.DB.getDb().dropCollection(User.COLLECTION);
+    //its the same DB instance so it can be used for both cases, but just be clear, I am using model access
+    //methods. If the models use different databases, you would have to do it this way regardless.
+    await Comment.DB.getDb().dropCollection(Comment.COLLECTION);
   })
 });
-*/
