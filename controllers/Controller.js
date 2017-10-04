@@ -8,7 +8,16 @@ class Controller {
   }
 
   async index(ctx, next){
-    return ctx.view('views/index.pug', {list: [{ name: 'Create backend', completed: true }]});
+    return ctx.view('views/index.pug', {list: [
+      { name: 'Create stack', completed: true },
+      { name: 'Setup webpack', completed: true },
+      { name: 'Write tests', completed: true },
+      { name: 'Fix tests', completed: false },
+      { name: 'Write real React components', completed: false },
+      { name: 'Debug real React components', completed: false },
+      { name: 'Test remote logins', completed: false },
+      { name: 'Hook up database', completed: false }
+    ]});
   }
 
   async about(ctx, next){
