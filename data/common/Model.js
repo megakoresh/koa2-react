@@ -61,13 +61,9 @@ class Model {
   toJSON(){
     return this.serialize();
   }
-<<<<<<< HEAD:models/Model.js
 
   toJSON(){
     return this.serialize();
   }
 }
 module.exports = Model;
-=======
-}
->>>>>>> 84606e46d03901cc4af7bddca4f54940dfc948d6:data/common/Model.js
