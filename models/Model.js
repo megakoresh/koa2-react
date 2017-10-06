@@ -47,5 +47,9 @@ class Model {
       updatedAt: new Date()
     }
   }
+
+  toJSON(){
+    return this.serialize();
+  }
 }
 module.exports = Model;
