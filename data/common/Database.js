@@ -7,6 +7,7 @@
  * work in SQL databases so your "intermediate objects" would quite literally just be
  * an array of strings with the first one being BEGIN TRANSACTION and last COMMIT TRANSACTION
  */
+module.exports = 
 class Database {
   constructor(url, driver){
     this.url = url;
@@ -80,5 +81,3 @@ class Database {
     return this.db;
   }
 }
-
-module.exports = Database;

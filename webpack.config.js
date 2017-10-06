@@ -3,7 +3,7 @@ const path = require('path');
 const config = require('./config');
 const babelMinify = require('babel-minify-webpack-plugin');
 
-const webpackSettings = {
+module.exports = {
   entry: {
     app: [
       //dev server is if you don't have backend 'webpack/hot/dev-server',
@@ -69,4 +69,3 @@ const webpackSettings = {
     ]
   }
 };
-module.exports = webpackSettings;
