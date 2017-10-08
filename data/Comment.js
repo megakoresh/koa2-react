@@ -3,13 +3,15 @@ const MongoDatabase = require('./common/MongoDatabase');
 const Association = require('./common/Association');
 const logger = require('winston');
 const mongodb = require('mongodb');
+const { User } = require('models');
 
-const db = new MongoDatabase(encodeURI(`mongodb://${process.env['MONGO_USER']}:${process.env['MONGO_PASSWORD']}@${process.env['MONGO_HOST']}/koa2_react`));
+//"private" variables
 const collectionName = 'comments';
+let db = new MongoDatabase(encodeURI(`mongodb://${process.env['MONGO_USER']}:${process.env['MONGO_PASSWORD']}@${process.env['MONGO_HOST']}/koa2_react`));
 
 class Comment extends MongoModel {
   constructor(data){
-    super(Comment.DB, Comment.COLLECTION, data);
+    super(data);
     //intiate fields that must exist before any other logic happens
     this.user = new Association([]);
     for (let [key, value] of Object.entries(data)) {
@@ -23,12 +25,29 @@ class Comment extends MongoModel {
     super.deserialize(data); //use parent's logic to set other attributes
   }
 
-  static get DB(){
+  set DB(newdb){
+    if(newdb instanceof MongoDatabase){
+      logger.warn(`Warning! Switching database for ${Utils.getCurrentClassName(this)}! All records from now on will operate with ${newdb.url}`);      
+      db = newdb;
+    } else {
+      throw new TypeError(`This model only supports MongoDatabase type, was ${newdb.constructor.name}`);
+    }
+  }
+
+  get DB(){
     return db;
   }
 
-  static get COLLECTION(){
+  get COLLECTION(){
     return collectionName;
+  }
+  
+  get db(){
+    return Comment.DB;
+  }
+
+  get collection() {
+    return Comment.COLLECTION;
   }
 
   static async count(query){
@@ -63,6 +82,7 @@ class Comment extends MongoModel {
     const data = super.serialize();    
     try {
       JSON.stringify(data);
+      if(withId) data._id = new mongodb.ObjectId(this.id);
       return data;
     } catch(e) {
       logger.error(`Serialization error for an instance of User: ${e.message}`);      
@@ -72,6 +92,7 @@ class Comment extends MongoModel {
 
   async save(asNew){
     let newRecord = await super.save(asNew);
+    return newRecord;
   }
 
   async delete(){

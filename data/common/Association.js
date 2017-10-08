@@ -1,84 +1,136 @@
-//If you have a many to many relationship, you will need to subclass this one to fetch
-//results from a join table/collection before creating the instances of the associated
-//object. Then you'll need to use that association subclass from all associated models
-//Alternatively you can just create an extra model for this, e.g. MemesSites extends Model
-//that would simply have two associations meme and sites, then have Association to MemeSites
-//from both Meme and Site models, so you could call await meme.sites.get() -> [ {meme: 1, site:2}, {meme:1, site:5} ]
-//await sites = memes.sites.map(async site=> await site.get()) -> [{url: 'https://mymemesite.com', id: 2}, ...]
+const Utils = require('utils');
+const Model = require('./Model');
+const logger = require('winston');
 
 /**
- * This class just represents an association between two models, it shouldn't contain
- * any special database logic. You create an association with an array either IDs (primary keys)
- * or full data records of the associated model class, and you call get with some parameters
- * to obtain the underlying model. For example
- * user.comments.push(new Comment({text: 'Blabla'}));
- * user.comments.push("baj4jkbneknfbfhj776bnjhba0"); //presume this ID exists
- * user.comments[0]; //--> Comment {text:'Blabla'}
- * user.comments[1]; // --> Comment "baj4jkbneknfbfhj776bnjhba0"
- * user.comments.save(); //adds the new comment to database
- * user.comments[0]; //--> {text:'Blabla', id: "1j34kjhjbkllkmvnjsl43g0"}
- * await user.comments[1].get(); //get the association record at index 1
- * user.comments[1]; //--> {text: 'Holy crapsties!': id: "baj4jkbneknfbfhj776bnjhba0" }
+ * Holds a number of records or model instances.
+ * The records an instance of Association holds can either be
+ * instances of Model subclass for which association is create (e.g. User)
+ * or data (JSON) with which such an instance can be created (e.g. { id: 1 } or "somemongodbidasstring")
  * 
- * Note that this should not be used if your association is a Mongo's subdocument.
+ * Behaves like an array - access raw data using modelRecord.assocField[0]
+ * To actually fetch most recent value from the database use await modelRecord.assocField.get(0)
+ * To completely populate Association call await modelRecord.assocField.populate() or
+ * await modelRecord.assocField.where(queryToFetchWhatYouNeed) and then access the 
+ * now up-to-date records with modelRecord.assocField[0..n-1]. You can obtain a list of
+ * currently in-memory primary records via modelRecord.assocField.toJSON()
+ * 
+ * Note that association is merely a conduit between two Model instances and doesn't handle
+ * database-specific operations. If you want to wrap, for example, join tables or make populate
+ * automatically retreive all values of the association, even when IDs are missing from memory
+ * you need to subclass this and override methods according to the database and driver you use.
+ * E.g. 
+ * class ManyToOneAssociation extend Association {
+ * constructor(classObject, initialRecords, foreignKey, parent){
+ *   super(classObject, initialRecords);
+ *   this.foreignKey = foreignKey;
+ *   this.parent = parent;
+ * }
+ * 
+ * async populate(){
+ *   if(!parent.id) //throw or parent.save()
+ *   return await this.where(`${this.foreignKey} IN (?)`, parent.id);
+ * }
+ * ...
  */
-module.exports = 
-class Association extends Array {  
-  constructor(classObject, records){
-    super(records.length);
-    this.records = Association.flatten([records]); //allows to accept both single values and arrays
-    this.model = classObject;
-    for(let i = 0; i<this.length; i++){
-      //from each record representation create an instance of associated model, either by ID or a new dataset
-      this[i] = typeof this.records[i] === 'object' ? 
-        new this.model(this.records[i]) : 
-        new this.model({id: this.records[i]});
-    }
+module.exports = class Association {
+  constructor(classObject, records){    
+    this.records = records ? Utils.flatten([records]) : []; //allows to accept both single values and arrays
+    if(!(classObject instanceof Model)) throw new TypeError(`Association must be created with a valid Model class which it is associating, was ${Utils.getCurrentClassName(classObject)}`);
+    this.model = classObject; //reference to the class for which association exists
+    return new Proxy(this, this.validator())    
   }
 
-  /**
-   * Ideally this should be a bulk operation, but
-   * save() is the only model method that doesn't require
-   * a database-specific query. If you extend this class
-   * to MongoAssociation or SQLAssociation, or something
-   * like that, you could replace this with a more efficient
-   * database-specific operation.
-   * 
-   * You can also loop through records and update those who have
-   * .id attribute, then insert all those who don't using 
-   * model's insert operation calling .serialize() on each
-   * instance
-   */
   async save(){
     const saves = [];
-    for(let i=0; i<this.length; i++){
-      if(Object.keys(this[i]).length > 1){
-        //assume its a model instance
-        saves.push(this[i].save());
+    try {
+      await this.model.beginTransaction();
+      for(let i=0; i<this.length; i++){
+        if(this[i] instanceof Model){        
+          saves.push(this[i].save());
+        } else {
+          //not a Model, assume it's record data we can only save by instantating a record and calling save()
+          //allow or deny this inefficient behaviour?
+          this[i] = new this.model(this[i]);
+          saves.push(this[i].save());
+        }
       }
+      await Promise.all(saves); //avoid putting await or yield into a loop unless absolutely necessary
+      await this.model.commitTransaction();
+    } catch (err){
+      logger.error(`Could not save ${this.recods.length} associated records of ${Utils.getCurrentClassName(this.model)}`);
+      logger.error(err);
+      await this.model.rollbackTransaction();
     }
-    await Promise.all(saves); //avoid putting await or yield into a loop unless absolutely necessary
   }
 
   async delete(){
-    return await this.model.delete(this.toJSON());
+    await this.model.beginTransaction();
+    let numDeleted = await this.model.delete(this.toJSON()); //delete by IDs
+    await this.model.commitTransaction();
+    return numDeleted;
   }
 
-  //Helper to recursively flatten arrays
-  static flatten(array){
-    return array.reduce((acc, curr)=>(Array.isArray(curr) ? flatten(curr) : curr));
+  async get(index){
+    if(index > this.records.length) throw new Error(`${index} is greater than number of associated records`);
+    return await this[index].get();
+  }
+
+  //TODO: async populate() { /* update all currently held records and populate the records */ }
+
+  /**
+   * Filters the current association records by provided query, replacing all contained records with the ones returned from the query.
+   * Note that depending on the model, this will parse all results to memory and construct a model for each row.
+   * @param {*} query database query which will be passed to the associated Model's where method
+   * @returns {Association} the current association object, populated with the query results to be used as usual
+   */
+  async where(query){
+    try {
+      let results = await this.model.where(query);
+      this.records = results;
+    } catch (err){
+      logger.error(`Error filtering associated records: ${err.message} \n Query: ${query}`);    
+    }
+  }
+
+  validator(){
+    return {
+      get(assoc, property, receiver){
+        if(!assoc.records) throw new Error('Association is missing "records" property, has it been constructed properly?');
+        if(!assoc.model) throw new Error('Association is missing "model" property, has it been constructed properly?');
+        if(typeof property === 'number' && assoc.records[property]){          
+          if(assoc.records[property] instanceof Model) return assoc.records[property]; //return the associated record instance or...
+          else return new assoc.model(assoc.records[property]); //...construct the model from record on access
+        }
+        return assoc[property]; //allow access to functions
+      },
+      set(target, property, value, receiver){
+        if(!assoc.records) throw new Error('Association is missing "records" property, has it been constructed properly?');
+        if(!assoc.model) throw new Error('Association is missing "model" property, has it been constructed properly?');
+        if(typeof property === 'number') {
+          assoc.records[property] = value;
+        }
+        assoc[property] = value;
+      }
+    }
   }
 
   //overrides JSON.stringify behaviour, when you call JSON stringify on this
   toJSON(){
     const ids = [];
     for(let i=0;i<this.length;i++){
-      ids.push(this[i].id ? this[i].id : this[i]);
+      if(this[i] instanceof Model && this[i].id){
+        ids.push(this[i].id);
+      } else if(Utils.isBasicType(this[i])){ 
+        ids.push(this[i]);        
+      } else {
+        ids.push(this[i].id || this[i]._id); //TODO: maybe add a getPrimaryKey() method to Model?
+      }
     }
     return ids;
   }
 
   push(value){
-
+    this[this.records.length] = value; //invokes the proxy
   }
 }

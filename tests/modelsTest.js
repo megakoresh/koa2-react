@@ -1,11 +1,12 @@
 const Utils = require('../utils');
 const expect = require('chai').expect;
 const logger = require('winston');
+const MongoDatabase = require('../data/common/MongoDatabase');
+const { User, Comment } = require('models');
 
-const { User, Comment } = Utils.requireModels();
-Utils.installGlobal(User, 'User');
-Utils.installGlobal(Comment, 'Comment');
-
+const db = new MongoDatabase(encodeURI(`mongodb://${process.env['MONGO_TEST_USER']}:${process.env['MONGO_TEST_PASS']}@${process.env['MONGO_TEST_HOST']}/testdb`));
+User.DB = db;
+Comment.DB = db;
 
 /**
  * Tests are the best way to ensure that basic functions of your
@@ -153,3 +154,8 @@ describe('Comment', function() {
     await Comment.DB.getDb().dropCollection(Comment.COLLECTION);
   })
 });
+
+after(async function(){
+  await db.collection(User.COLLECTION).drop();
+  await db.collection(Comment.COLLECTION).drop();
+})

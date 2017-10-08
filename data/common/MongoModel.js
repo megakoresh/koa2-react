@@ -1,90 +1,19 @@
 const mongodb = require('mongodb')
 const Model = require('./Model')
 const Association = require('./Association');
+const logger = require('winston');
+const Utils = require('utils');
 
-module.exports = 
-class MongoModel extends Model {
-  constructor(db, collectionName, data){
+exports = class MongoModel extends Model {
+  constructor(data){
     super(data);
-    //since this is first line, if db is something other than a Database instance, it should crash right away
-    this.collection = collectionName;
-    this.db = db;
+    //since this is first line, if db is something other than a Database instance, it should crash right away    
     try {
       if(data._id) this.id = data._id.toString();
       else if(data.id) this.id = data.id;
     } catch (err){
       logger.error(`Error assigning an ID to Mongo model wih collection name ${collectionName}`)
     }
-  }
-
-  //By overriding this method you can completely control
-  //how subclasses get instantiated
-  deserialize(data){
-    super.deserialize(data);
-    for (let [key, value] of Object.entries(data)) {
-      if(this[key]) continue; //don't deserialize if it's already been processed
-      switch(key){
-        //createdAt and updatedAt should be deserialized in superclass
-        default:
-          if(typeof value !== 'function'){
-            //you might wanna do more checks here
-            this[key] = value;
-          }
-          break;
-      }
-    }
-  }
-
-  serialize(withId){    
-    const data = super.serialize();
-    //by definition ES6 class methods are not enumerable so we
-    //don't have to worry about them ending up in this loop. However
-    //you have to be careful not to add any other methods or unrelated fields
-    //to the user instance at runtime, since javascript can do that.
-    //be very careful with your libraries and watch what they do.
-
-    //this is essentially the reverse if your constructor
-    //in SQL databases, you of course wanna be more strict, just
-    //like in constructor and only serialize values you have columns for
-    for (let [key, value] of Object.entries(this)) {
-      //dont serialize if its already been serialized
-      if(data[key]) continue;
-      if(value instanceof Association){
-        //invoke default behaviour of Associated records
-        data[key] = value.toJSON(); //store as array of IDs
-        continue;
-      }
-      switch(key){
-        case 'id':
-          if(withId) data._id = new mongodb.ObjectId(value);
-          break;
-        default:
-        //normally I frown on nesting switch cases, and would have offloaded this to
-        //another function, but for sake of demonstration here it is
-          switch(typeof value){
-            //for any 'unknown' attributes serialize them if they are one of the
-            //standard primitive types
-            case 'string':
-            case 'number':
-            case 'boolean':
-            case 'null':
-            case 'undefined':
-              data[key] = value;
-              break;
-            default:             
-              try {
-                //if the value is not primitive, then do that trick with the JSON.stringify
-                JSON.stringify(value); //throws if invalid
-                data[key] = value;
-              } catch(e) {
-                logger.error(`Could not serialize User field ${key} - ${e.message}. The field value will not be saved!`);
-              }
-              break;
-          }
-          break;
-      }
-    }
-    return data;
   }
 
   static transformQuery(query){
@@ -141,24 +70,23 @@ class MongoModel extends Model {
   }
 
   async get(){
-    const cursor = await this.db.select((this.id) ? new mongodb.ObjectId(this.id) : this.serialize());
+    const cursor = await this.db.select((this.id) ? new mongodb.ObjectId(this.id) : this.serialize(), this.collection);
     const record = await cursor.next();
     this.deserialize(record);
     return this;
   }
 
   async save(asNew){
-    //allow to override whether save creates a new record or updates existing one using
+    //allow to override whether save creates a new record or updates existing one using this.id
     if(typeof asNew === 'undefined') asNew = this.id ? true : false;
 
-    const serialized = this.serialize(asNew);
-    let result;
+    const serialized = this.serialize(asNew);    
     let inserted = false;
     if(serialized._id){
       await MongoModel.update({_id: serialized._id}, serialized, this.collection);
     } else {
       let insertResult = await MongoModel.insert(serialized, this.db, this.collection);
-      inserted = true;
+      inserted = insertResult !== null && insertResult.ops[0];
       this.id = inserted.ops[0]._id.toString();
     }
     return inserted;
@@ -170,5 +98,86 @@ class MongoModel extends Model {
     const results = await this.db.delete([this.id], this.collection);
     //do something with results, e.g. if CASCADE is not set, you might need to run through all associations and delete them all
     return results.deletedCount;
+  }
+
+  
+  static set COLLECTION(newCollectionName){
+    throw new Error(`${Utils.getCurrentClassName(this)} does not support changing collection name`);
+  }
+
+  //Force subclasses to implement these statically to make sure all instances refer to the same variable
+  static get DB(){
+    throw new Error(`MongoModel DB getter must be implemented by subclasses!`)
+  }
+  static get COLLECTION(){
+    throw new Error(`MongoModel COLLECTION getter must be implemented by subclasses!`)
+  }
+
+  // Allows parent logic to use child class's database instance, if returned from this method
+  // via ChildModel.DB
+  get db(){
+    throw new Error(`MongoModel db getter must be implemented by subclasses!`)
+  } 
+  // Allows parent logic to use child class's collection name, if returned from this method
+  // via ChildModel.COLLECTION
+  get collection(){
+    throw new Error(`MongoModel collection getter must be implemented by subclasses!`)
+  }
+
+  deserialize(data){
+    super.deserialize(data);
+    for (let [key, value] of Object.entries(data)) {
+      if(this[key]) continue; //don't deserialize if it's already been processed
+      switch(key){
+        //createdAt and updatedAt should be deserialized in superclass
+        default:
+          if(typeof value !== 'function'){
+            //you might wanna do more checks here, e.g. add Model.validate(key) method and call here
+            this[key] = value;
+          }
+          break;
+      }
+    }
+  }
+
+  serialize(withId){    
+    const data = super.serialize();    
+    for (let [key, value] of Object.entries(this)) {
+      //dont serialize if its already been serialized
+      if(data[key]) continue;
+      if(value instanceof Association){
+        //invoke default behaviour of Associated records
+        data[key] = value.toJSON(); //store as array of IDs
+        continue;
+      }
+      switch(key){
+        case 'id':
+          if(withId) data._id = new mongodb.ObjectId(value);
+          break;
+        default:
+          switch(typeof value){
+            //for any 'unknown' attributes serialize them if they are one of the
+            //standard primitive types
+            case 'string':
+            case 'number':
+            case 'boolean':
+            case 'null':
+            case 'undefined':
+              data[key] = value;
+              break;
+            default:             
+              try {
+                //if the value is not primitive, then do that trick with the JSON.stringify
+                JSON.stringify(value); //throws if invalid
+                data[key] = value;
+              } catch(e) {
+                logger.error(`Could not serialize field ${key} - ${e.message}. The field value will not be saved!`);
+              }
+              break;
+          }
+          break;
+      }
+    }
+    return data;
   }
 }

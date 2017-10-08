@@ -4,7 +4,7 @@ const logger = require('winston');
 const path = require('path');
 const fs = require('fs');
 
-module.exports = class Utils {
+exports = class Utils {
     static getFiles(directory, ignoreRegex){
 
     }
@@ -76,10 +76,10 @@ module.exports = class Utils {
 
       const iterator = walk(directory);
       let result = iterator.next();
-      while (!result.done) {
-        /* Store module with its name (from filename) */
+      while (!result.done) {        
         let m = require(result.value);
         if(m[namespace]){
+          //store potentially incomplete reference containing the namespace here
           modules[path.basename(result.value, '.js')] = m;
         }
         result = iterator.next();
@@ -114,5 +114,17 @@ module.exports = class Utils {
     static requireModels(){
       let models = Utils.requireNamespace('data', 'model');
       return models;
+    }
+
+    static getCurrentClassName(_this){
+      return _this.toString().split ('(' || /s+/)[0].split (' ' || /s+/)[1];
+    }
+
+    static flatten(array){
+      return array.reduce((acc, curr)=>(Array.isArray(curr) ? flatten(curr) : curr));
+    }
+
+    static isBasicType(value){
+      return Object.keys(value) === 0 || typeof value === 'string';
     }
   }
