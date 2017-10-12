@@ -1,3 +1,5 @@
+const path = require('path');
+
 module.exports = {
   csrf: {
     "invalidSessionSecretMessage": "Invalid session secret",
@@ -10,6 +12,6 @@ module.exports = {
   keys: {
     session: process.env['SESSION_SECRET'] || 'session-secret'    
   },
-  appRoot: __dirname,
+  appRoot: __dirname.split(path.delimiter)W,
   env: process.env['NODE_ENV']
 }

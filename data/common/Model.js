@@ -1,4 +1,4 @@
-const Utils = require('utils');
+const Utils = require('common').Utils;
 
 /**
  * Abstract class to be overridden by other models.

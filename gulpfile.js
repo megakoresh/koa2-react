@@ -6,7 +6,7 @@ const webpackDevMiddleware = require('webpack-dev-middleware');
 const webpackHotMiddleware = require('webpack-hot-middleware');
 const webpack = require('webpack')(webpackConfig);
 const path = require('path');
-const config = require('./config');
+const config = require('common').config;
 
 gulp.task('dev', function(){
   browserSync({

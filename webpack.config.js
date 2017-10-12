@@ -1,6 +1,6 @@
 const webpack = require('webpack');
 const path = require('path');
-const config = require('./config');
+const config = require('common').config;
 const babelMinify = require('babel-minify-webpack-plugin');
 
 module.exports = {

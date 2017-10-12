@@ -2,7 +2,7 @@ const mongodb = require('mongodb')
 const Model = require('./Model')
 const Association = require('./Association');
 const logger = require('winston');
-const Utils = require('utils');
+const Utils = require('common').Utils;
 
 exports = class MongoModel extends Model {
   constructor(data){

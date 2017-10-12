@@ -46,7 +46,7 @@ logger.add(logger.transports.Console, { level: 'debug', colorize:true });
 const authenticate = require('./middleware/authenticate')();
 const responder = require('./middleware/responder');
 //const netLogger = require('./middleware/logger');
-const config = require('./config');
+const config = require('common').config;
 const routing = require('./middleware/routing')();
 
 const app = new Koa();

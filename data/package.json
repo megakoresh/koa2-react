@@ -1,0 +1,6 @@
+{
+  "name": "models",
+  "version": "0.0.0",
+  "description": "Models for this application",
+  "main": "models.js"
+}

@@ -4,11 +4,11 @@
  */
 
 module.exports = {
-    User,
-    Comment
+    User: null,
+    Comment: null
 }
 
-const Utils = require('utils');
+const Utils = require('common').Utils;
 const models = Utils.requireNamespace('data', 'model');
 
 //here you have a chance to do some processing, e.g. override databases, etc.

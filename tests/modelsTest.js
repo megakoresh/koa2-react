@@ -1,4 +1,4 @@
-const Utils = require('../utils');
+const Utils = require('common').Utils;
 const expect = require('chai').expect;
 const logger = require('winston');
 const MongoDatabase = require('../data/common/MongoDatabase');

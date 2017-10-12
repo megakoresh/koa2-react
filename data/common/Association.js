@@ -1,4 +1,4 @@
-const Utils = require('utils');
+const Utils = require('common').Utils;
 const Model = require('./Model');
 const logger = require('winston');
 
