@@ -1,4 +1,3 @@
-module.exports =
 class Controller {
   constructor(router){
     this.router = router; //keep the referce to the router? It may not be needed here actually
@@ -24,3 +23,5 @@ class Controller {
     return ctx.view('views/about.pug');
   }
 }
+
+module.exports = Controller;

@@ -1,12 +1,10 @@
 const gulp = require('gulp');
-const logger = require('winston');
-const webpackConfig = require('./webpack.config');
 const browserSync = require('browser-sync');
 const webpackDevMiddleware = require('webpack-dev-middleware');
 const webpackHotMiddleware = require('webpack-hot-middleware');
-const webpack = require('webpack')(webpackConfig);
 const path = require('path');
-const config = require('common').config;
+const { Logger, config, webpackConfig } = require('common');
+const webpack = require('webpack')(webpackConfig);
 
 gulp.task('dev', function(){
   browserSync({

@@ -1,8 +1,8 @@
 /*eslint { "global-require": 0 }*/
-const config = require('./config');
-const logger = require('winston');
 const path = require('path');
 const fs = require('fs');
+const config = require('./config');
+const { Logger } = require('common');
 
 class Utils {
   static getFiles(directory, ignoreRegex) {
@@ -19,7 +19,7 @@ class Utils {
     const files = require('fs').readdirSync(directory)
     if (files.includes('index.js')) {
       if (ignoreRegex && !ignoreRegex.test('index.js'))
-        logger.warn(`${directory} includes an index.js file that the passed ignoreRegex ${ignoreRegex} does not match. \nThis means it will be required along with other files. That may not be what you want.`);
+        Loggerwarn(`${directory} includes an index.js file that the passed ignoreRegex ${ignoreRegex} does not match. \nThis means it will be required along with other files. That may not be what you want.`);
       else return require(directory);
     }
 
@@ -121,11 +121,32 @@ class Utils {
   }
 
   static flatten(array) {
-    return array.reduce((acc, curr) => (Array.isArray(curr) ? flatten(curr) : curr));
+    return array.reduce((a, b) => a.concat(b), []);
   }
 
   static isBasicType(value) {
     return Object.keys(value) === 0 || typeof value === 'string';
+  }
+
+  /**
+   * Merge two arrays, updating entries in first with corresponding entries from second array when comparatr returns true
+   * and appending the rest of the entries from the second array to end of the first, returning array1, modified in palce
+   * @param {Array} array1 the array to merge with
+   * @param {Array} array2 the array to merge to
+   * @param {Function} comparator function taking two parameters, the first is value from array1, second value from array2, that will determine whether to merge values or append
+   * @returns {Array} array1, modified
+   */
+  static arrayMerge(array1, array2, comparator){
+    if(typeof comparator !== 'function') throw new Error('merger must be a function');    
+    for(let i=0; i<array2.length; i++){
+      let found = array1.findIndex(val=>comparator(val, array2[i]));
+      if(found>-1) {
+        array1[found] = array2[i];
+      } else {
+        array1.push(array2[i]);
+      }
+    }
+    return array1;
   }
 }
 

@@ -1,15 +1,22 @@
-const Utils = require('common').Utils;
+const { Utils } = require('common');
 
 /**
  * Abstract class to be overridden by other models.
+ * If you want to use an ORM like sequelize or Mongoose you probably don't need to even extend this (I still highly recommend to to keep
+ * record-related logic in their own classes). If you only use one type of DB and use an ORM, simply replace the Errors here with the corresponding
+ * ORM methods.
+ * 
+ * The recommended approach however is to extend this Model anyway and place the ORM methods to Database class.
  */
-class Model {
-  constructor(data){
-    return this.deserialize(data);
+module.exports = class Model {
+  constructor(data){    
+    //TODO: return proxy instead like in Association, to validate values on assignment    
+    //return new Proxy(this, validator); //where validator is Child.VALIDATOR implementing Proxy.handler passed via constructor parameter
   }
-
+  
   /**
-   * Obtain a reference to the Model's database connection
+   * Obtain a reference to the Model's database object. This should return a Database wrapper
+   * which in turn maintains a pool of actual driver connections (or your ORM)
    * @returns {Database} database instance for the model
    */
   static get DB(){
@@ -21,6 +28,39 @@ class Model {
    */
   static set DB(newdb){
     throw new Error(`${Utils.getCurrentClassName(this)} does not support switching databases`);
+  }
+
+  /**
+   * Returns some identity of the datastore (table, collection, etc.) that your model uses in it's query methods
+   * Typically this is your ORM's representation of a table or collection
+   * e.g. result of sequelize.define('tableName', { shema }) or mongoose.model({ schema })
+   * or, if not using an ORM, the name of a table or a collection, as a string
+   * 
+   * Recommended approach is to define this in your Model module as a "private" variable/field so it gets executed
+   * once when the server starts and have your model's implementation of this method return a reference to that variable.
+   * @returns {*} identity of the datastore
+   */
+  static get DATASTORE(){
+    throw new Error(`Model.DATASTORE getter is abstract and must be implemented by subclasses`)
+  }
+
+  /**
+   * Sets the datastore identity for your model (used to change table/collection name for all future operations).   
+   * @param {*} newDatastore the new datastore identity your model will use from the time of setting this static variable
+   */
+  static set DATASTORE(newDatastore){
+    throw new Error(`Model.DATASTORE setter is abstract and must be implemented by subclasses`)
+  }
+
+  // Allows parent logic to use child class's database instance, if returned from this method
+  // via ChildModel.DB
+  static get db(){
+    throw new Error(`Model.db getter is abstract and must be implemented by subclasses`)
+  }
+  // Allows parent logic to use child class's datastore, if returned from this method
+  // via ChildModel.datastore
+  static get datastore(){
+    throw new Error(`Model.datastore getter is abstract and must be implemented by subclasses`)
   }
 
   /**
@@ -146,8 +186,7 @@ class Model {
   /*
   validator(){
     return {
-      set(target, property, value, receiver){
-        if(value instanceof Model) throw new TypeError('Models can not contain other models as values, please use Association(ModelClass, value) instead');
+      set(target, property, value, receiver){      
         if(typeof value === 'function') throw new Error('Models do not support dynamic function properties');        
         target[property] = value;
         return true;
@@ -186,5 +225,3 @@ class Model {
     return this.serialize();
   }
 }
-
-exports = Model;

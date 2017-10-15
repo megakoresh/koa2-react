@@ -19,8 +19,14 @@
     "pug": "^2.0.0-rc.3",
     "react-redux": "^5.0.6",
     "winston": "^2.3.1",
-    "utils": "file:common",
-    "models": "file:data"
+    "common": "file:common",
+    "models": "file:models",
+    "middleware": "file:middleware",
+    "controllers": "file:controllers",
+    "database": "file:database"
+  },
+  "peerDependencies": {
+    "linklocal": "^2.8.1"
   },
   "devDependencies": {
     "babel-core": "^6.26.0",

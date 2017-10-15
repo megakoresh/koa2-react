@@ -1,5 +1,5 @@
 {
   "name": "common",
   "version": "0.0.0",
-  "description": "Various helpers"
+  "description": "Code used elsewhere in the app"
 }

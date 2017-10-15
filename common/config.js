@@ -12,6 +12,6 @@ module.exports = {
   keys: {
     session: process.env['SESSION_SECRET'] || 'session-secret'    
   },
-  appRoot: __dirname.split(path.delimiter)W,
+  appRoot: __dirname.split(path.sep).slice(0,-1).join(path.sep),
   env: process.env['NODE_ENV']
 }

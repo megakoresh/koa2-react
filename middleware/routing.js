@@ -1,19 +1,16 @@
-const controllers = require('../controllers');
+const controllers = require('controllers');
 const router = require('koa-router')();
-const logger = require('winston');
+const { Logger } = require('common');
 
 module.exports = function route(options){
-  //Remember - if you don't call await next(); then this middleware 
-
-  logger.debug(`loading ${Object.keys(controllers).length} controllers...`);  
-  for(let controllerName in controllers){
-    if(controllers.hasOwnProperty(controllerName)){
-      logger.debug(`loading ${controllerName}`);
-      new controllers[controllerName](router);
-      logger.debug(`${controllerName} loaded successfully`);
-    }
+  let controllerNames = Object.keys(controllers);
+  Logger.debug(`loading ${controllerNames.length} controllers...`);  
+  for(let controllerName of controllerNames){
+    Logger.debug(`loading ${controllerName}`);
+    new controllers[controllerName](router);
+    Logger.debug(`${controllerName} loaded successfully`);
   }
-  logger.debug('finished loading controllers...');  
+  Logger.debug('finished loading controllers...');  
 
   return router;
 }
