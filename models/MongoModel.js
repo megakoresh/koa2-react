@@ -1,6 +1,5 @@
 const mongodb = require('mongodb')
 const Model = require('./Model')
-const Collection = require('./Collection');
 const { Logger, Utils } = require('common');
 
 module.exports = class MongoModel extends Model {
@@ -12,7 +11,7 @@ module.exports = class MongoModel extends Model {
       else if(data.id) this.id = data.id;
       else if (typeof data === 'string') this.id = data;
     } catch (err){
-      Logger.error(`Error assigning an ID to Mongo model wih collection name ${datastore}, data provided: \n ${JSON.stringify(data, 2)}`);
+      Logger.error(`Error assigning an ID to Mongo model wih collection name ${this.datastore}, data provided: \n ${JSON.stringify(data, 2)}`);
     }
   }
 
@@ -43,42 +42,62 @@ module.exports = class MongoModel extends Model {
   }
 
   static async count(query, db, collection) {
+    //lets us use the child's overridden getters, arguments, which allows the child to avoid implementing any of the common functions
+    //unless they want special behaviour
+    db = db || this.DB;
+    collection = collection || this.DATASTORE;
+
     query = MongoModel.transformQuery(query);
     
     return await db.count(query, collection);
   }
 
   static async find(query, db, collection){
+    db = db || this.DB;
+    collection = collection || this.DATASTORE;
+
     query = MongoModel.transformQuery(query);    
     const cursor = await db.select(query, collection);
     const record = await cursor.next();
     //TODO: throw a 404 not found error - decide yourself how this should look
-    return record;
+    return new this(record);
   }
 
   static async where(query, db, collection, returnCursor) {
+    db = db || this.DB;
+    collection = collection || this.DATASTORE;
+
     //transform query for this model
     query = MongoModel.transformQuery(query);    
     const cursor = await db.select(query, collection);
-    if(!returnCursor) return await cursor.toArray();
+    if(!returnCursor) return (await cursor.toArray()).map(r=>new this(r));
     else return cursor;
   }
 
   static async delete(query, db, collection){
+    db = db || this.DB;
+    collection = collection || this.DATASTORE;
+
     query = MongoModel.transformQuery(query);
     const result = await db.delete(query, collection);
     return result.deletedCount;
   }
 
   static async update(query, data, db, collection){
+    db = db || this.DB;
+    collection = collection || this.DATASTORE;
+    
     query = MongoModel.transformQuery(query);
     const result = await db.update(query, data, collection);
     return result.modifiedCount;
   }
 
   static async insert(data, db, collection){
+    db = db || this.DB;
+    collection = collection || this.DATASTORE;
+
     const result = await db.insert(data, collection);
-    return result.ops;
+    return result.ops.map(r=>new this(r));
   }
 
   async get(){
@@ -96,11 +115,11 @@ module.exports = class MongoModel extends Model {
     if(serialized._id){
       await MongoModel.update({_id: serialized._id}, serialized, this.db, this.datastore);
     } else {
-      let insertResult = await MongoModel.insert(serialized, this.db, this.datastore);
+      let insertResult = await this.db.insert(serialized, this.datastore);
       if(!insertResult) throw new Error(`MongoDatabase insert failed - no insertResult`);
-      if(insertResult.length === 0) Logger.warn(`Called save() on a new record, but no records were inserted!`);
-      inserted = insertResult !== null && insertResult[0];
-      this.id = inserted._id.toString();
+      if(insertResult.ops.length === 0) Logger.warn(`Called save() on a new record, but no records were inserted!`);
+      inserted = insertResult !== null && insertResult.ops[0];
+      this.id = insertResult.ops[0]._id.toString();
     }
     return inserted;
   }

@@ -1,5 +1,6 @@
 const { Utils } = require('common');
 
+const SYMBOL_KEY = 'modulesLoadedSymbolKey';
 /**
  * Abstract class to be overridden by other models.
  * If you want to use an ORM like sequelize or Mongoose you probably don't need to even extend this (I still highly recommend to to keep
@@ -9,9 +10,19 @@ const { Utils } = require('common');
  * The recommended approach however is to extend this Model anyway and place the ORM methods to Database class.
  */
 module.exports = class Model {
-  constructor(data){    
+  constructor(data){
+    if(!global[Model.MODELS_LOADED_FLAG]){
+      throw new Error(`Models have not been loaded, please call require('models') once before executing any model code`);
+    }
     //TODO: return proxy instead like in Association, to validate values on assignment    
     //return new Proxy(this, validator); //where validator is Child.VALIDATOR implementing Proxy.handler passed via constructor parameter
+  }
+
+  /**
+   * Returns a symbol indicating that models have been loaded. Must be set to global object once that happens.
+   */
+  static get MODELS_LOADED_FLAG(){
+    return Symbol.for(SYMBOL_KEY);
   }
   
   /**
@@ -102,7 +113,7 @@ module.exports = class Model {
    * Find a single record with the provided query. Subclasses determine which parameters this accepts.
    * @returns {Model} instance of subclass
    */
-  static async find(){
+  static async find(){    
     throw new Error('Model.find is abstract and must be implemented by subclasses');    
   }
 
@@ -223,5 +234,13 @@ module.exports = class Model {
    */
   toJSON(){
     return this.serialize();
+  }
+
+  [Symbol.toPrimitive](hint){
+    if(hint !== 'number'){
+      //Model: id = 1, field1 = someValue, field2 = another, okidoki = 1...
+      return `${Utils.getCurrentClassName(this)}: ${Object.keys(this).map(k=>`${k} = ${this[k]}`).slice(0,4).join(', ')} ...`;
+    }
+    throw new TypeError(`${Utils.getCurrentClassName(this)} can not be cast to number`);
   }
 }

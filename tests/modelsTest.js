@@ -82,43 +82,40 @@ describe('Comment', function() {
     let user = new User({username: 'XxX_must4p4sk4_XxX'});
     let insered = await user.save();
     expect(insered).to.be.an('object');
-    //post a new comment
-    let comment = new Comment({text:'I like trains', user: user.id});
-    user.comments.push(comment);
-    await user.comments.save();
-    let foundComment = await Comment.find({user: user.id});
-    expect(foundComment.text).to.equal(comment.text);
+    let commentsAdded = await user.addComments('I like trains');    
+    let foundComment = await Comment.find({userId: user.id});
+    expect(foundComment.text).to.equal(commentsAdded[0].text);
   });
   it('posts another comment as a user', async function(){
     let user = await User.find({username: 'XxX_must4p4sk4_XxX'});
-    user.comments.push(new Comment({text: 'N0sc0p3d bi4tch!', user: user.id}));
-    await user.comments.save();
+    let commentsAdded = await user.addComments('N0sc0p3d bi4tch!');  
     let count = await Comment.count();
     expect(count).to.equal(2);
   })
   it('likes a comment', async function(){
     let user = await User.find({username: 'XxX_must4p4sk4_XxX'});
-    let comment = (await user.comments.get())[0];
-    comment.likes += 1;
+    let comment = (await user.comments)[0];
+    let likes = Math.round(Math.random()*10)+1;
+    comment.likes += likes;
     await comment.save();
     comment = await Comment.find(comment.id);
-    expect(comment.likes).to.equal(1);
+    expect(comment.likes).to.equal(likes);
   })
   it('updates an existing comment', async function(){
     let user = await User.find({username: 'XxX_must4p4sk4_XxX'});
-    let comment = (await user.comments.get())[0];
-    comment.text = 'Looks like I was really high that time...';
+    let comment = (await user.comments)[0];
+    let text = 'Looks like I was really high that time...';
+    comment.text = text;
     await comment.save();
     comment = await Comment.find(comment.id);
-    expect(comment.text).to.equal('Looks like I was really high that time...');
+    expect(comment.text).to.equal(text);
   })
   it('cleans up all the comments in the database', async function(){
     let users = await User.where();    
     const toDelete = [];
-    for(let i=0; i<users.length;i++){
-      await users[i].comments.get();
-      toDelete.push(users[i].delete()); //todo: this should probably also wipe all comments as well
-      users[i].comments.forEach(comment=>toDelete.push(comment.delete()));
+    for(let i=0; i<users.length;i++){      
+      toDelete.push(users[i].delete());
+      toDelete.concat((await users[i].comments).map(comment=>comment.delete()));      
     }
     await Promise.all(toDelete);
     const count = await User.count();

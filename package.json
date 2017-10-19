@@ -5,6 +5,9 @@
   "readme": "README.md",
   "license": "MIT",
   "dependencies": {
+    "common": "file:common",
+    "controllers": "file:controllers",
+    "database": "file:database",
     "jsonwebtoken": "^7.4.3",
     "kcors": "^2.2.1",
     "koa": "^2.3.0",
@@ -15,15 +18,14 @@
     "koa-passport": "^3.0.0",
     "koa-router": "^7.2.1",
     "koa-static": "^4.0.1",
+    "middleware": "file:middleware",
+    "models": "file:models",
     "mongodb": "^2.2.31",
+    "mysql2": "^1.4.2",
     "pug": "^2.0.0-rc.3",
     "react-redux": "^5.0.6",
-    "winston": "^2.3.1",
-    "common": "file:common",
-    "models": "file:models",
-    "middleware": "file:middleware",
-    "controllers": "file:controllers",
-    "database": "file:database"
+    "redux": "^3.7.2",
+    "winston": "^2.3.1"
   },
   "peerDependencies": {
     "linklocal": "^2.8.1"

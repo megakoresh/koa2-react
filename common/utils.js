@@ -148,6 +148,19 @@ class Utils {
     }
     return array1;
   }
+
+  /**
+   * Returns a generator that will iterate an object's enumerable properties, compatible with for..of loops
+   * @param {*} object whose enumerable properties will be iterated
+   * @returns {Generator} a generator that conforms to the iterator protocol
+   */
+  static *iterateObject(object){
+    for(let key in object){
+      if(object.hasOwnProperty(key)){
+        yield [ key, object[key] ];
+      }
+    }
+  }
 }
 
 module.exports = Utils;
