@@ -1,3 +1,4 @@
+/*
 const { expect } = require('chai');
 const { Utils, Logger } = require('common');
 const { User, Comment } = require('models');
@@ -12,7 +13,7 @@ describe('User model:', async function() {
   Logger.info(`Testing user model. Database ${User.DB.url} and collection ${User.DATASTORE}`);
   it('tests whether connection works', async function() {
     await User.where({username: 'nopestitynopes'}); //this will create the collection implicitly
-    const count = await User.DB.getDb().collection(User.DATASTORE).count();
+    const count = await User.DB.connect().then(db=>db.collection(User.DATASTORE).count());
     expect(count).to.equal(0);
   });
   it('inserts a user into the database', async function(){
@@ -70,7 +71,7 @@ describe('User model:', async function() {
     expect(count).to.equal(0);   
   })
 });
-/* Test associations between user and comment */
+//Test associations between user and comment
 describe('Comment', function() {
   Logger.info(`Testing comment model. Database ${Comment.DB.url} and collection ${Comment.DATASTORE}`);
   it('tests whether connection works', async function() {    
@@ -127,7 +128,9 @@ describe('Comment', function() {
 
 after(async function(){
   Logger.info('Cleanup: Dropping user collection');
-  await User.DB.getDb().dropCollection(User.DATASTORE);
+  await User.DB.connect().then(db=>db.dropCollection(User.DATASTORE));
   Logger.info('Cleanup: Dropping comment collection');
-  await Comment.DB.getDb().dropCollection(Comment.DATASTORE);
+  await Comment.DB.connect().then(db=>db.dropCollection(Comment.DATASTORE));
 })
+
+//*/

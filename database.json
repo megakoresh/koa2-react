@@ -1,0 +1,17 @@
+{
+  "test-mariadb": {
+    "driver": "mysql2",
+    "database": "test",
+    "user": { "ENV" : "MARIA_TEST_USER" },
+    "password" : { "ENV" : "MARIA_TEST_PASS" },
+    "host": { "ENV" : "MARIA_TEST_HOST" },
+    "multipleStatements": true
+  },
+  "test-mongodb": {
+    "driver": "mongodb",
+    "database": "test",
+    "user": { "ENV" : "MONGO_TEST_USER" },
+    "password" : { "ENV" : "MONGO_TEST_PASS" },
+    "host": { "ENV" : "MONGO_TEST_HOST" }
+  }
+}

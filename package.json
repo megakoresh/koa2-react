@@ -28,7 +28,8 @@
     "winston": "^2.3.1"
   },
   "peerDependencies": {
-    "linklocal": "^2.8.1"
+    "linklocal": "^2.8.1",
+    "db-migrate": "^0.10.0-beta.24"
   },
   "devDependencies": {
     "babel-core": "^6.26.0",
@@ -62,6 +63,8 @@
     "dev": "gulp dev",
     "devserver": "gulp dev && node --inspect app.js",
     "test": "mocha ./tests/",
-    "debug-test": "mocha --inspect --inspect-brk ./tests/"
+    "debug-test": "mocha --inspect --inspect-brk ./tests/",
+    "sql-migrations-test": "db-migrate up:sql -e test-mariadb",
+    "nosql-migrations-test": "db-migrate up:nosql -e test-mongodb"
   }
 }

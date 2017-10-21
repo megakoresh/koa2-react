@@ -14,28 +14,9 @@ const { Logger } = require('common');
  */
 module.exports = 
 class Database {
-  constructor(url, driver){
-    this.url = url;
-    this.driver = driver;
-    //database object from your database driver
-    this.db;
+  constructor(url){
+    this.url = url;    
     process.on('SIGINT', this.disconnect);
-  }
-
-  /**
-   * Calls child's connect method which must connect to the database and return an object representing that active connection
-   * (typically a database object from the driver). This method sets this.db to the object provided by childs connect() override
-   * and the resulting this.db will be used by the child to perform the next operation.
-   * @param {*} args arguments to pass to your derived class's connect method, conventionally this is the database url or table/collection name
-   * @returns {undefined}
-   */
-  async ensureConnected(args){
-    try {      
-      if(!this.db) this.db = await this.connect(args);
-    } catch (err){
-      Logger.err
-      throw err;
-    }
   }
 
   //return some kind of result set from the query object passed
@@ -78,18 +59,5 @@ class Database {
   //free up a connection using the provided driver
   async disconnect(){
     throw new Error('Database.disconnect is abstract and must be implemented by subclasses');
-  }
-
-  async beginTransaction(){
-    throw new Error('Database.beginTransaction is abstract and must be implemented by subclasses');
-  }
-
-  async commitTransaction(){
-    throw new Error('Database.commitTransaction is abstract and must be implemented by subclasses');
-  }
-
-  //get database instance if available (ensureConnected called sucessfully at least once)
-  getDb(){
-    return this.db;
   }
 }

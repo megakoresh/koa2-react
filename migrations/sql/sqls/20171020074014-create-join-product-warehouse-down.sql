@@ -1,0 +1,1 @@
+DROP TABLE join_products_warehouses
