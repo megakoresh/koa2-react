@@ -1,4 +1,4 @@
-CREATE TABLE join_product_warehouse(
+CREATE TABLE join_products_warehouses(
   id INT UNSIGNED NOT NULL AUTO_INCREMENT,
   product_id INT UNSIGNED NOT NULL,
   warehouse_id INT UNSIGNED NOT NULL,
