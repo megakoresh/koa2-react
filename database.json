@@ -1,6 +1,6 @@
 {
   "test-mariadb": {
-    "driver": "mysql2",
+    "driver": "mysql",
     "database": "test",
     "user": { "ENV" : "MARIA_TEST_USER" },
     "password" : { "ENV" : "MARIA_TEST_PASS" },

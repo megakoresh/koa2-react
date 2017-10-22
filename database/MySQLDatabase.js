@@ -7,59 +7,48 @@ const queryOptions = {
   nestTables: true
 }
 
-/*
-db.select('users', 'id = ?', [21])
-db.select('users', {id: 21});
-db.select('users', 'id = 21 AND stuff = verySomehowComplicated');
-
-  select(table, ...arguments)
-    getSelectQueryComponent(arguments) => [ preparedQuerySegment, argumentsIfAny ]
-
-db.insert('users', { name: 'Steve', avatar: 'http://minecraft.com/steve.jpg' });
-db.insert('users', [{ name: 'Steve', avatar: 'http://minecraft.com/steve.jpg' }, {name: 'Paulina', avatar: 'https://facecrap.com/paulinaswag'}]);
-db.insert('users', 'everything after INSERT INTO users');
-  insert(table, ...arguments)
-    getInsertQueryComponent(arguments) => [ [ preparedQuerySegment, argumentsIfAny ], [...] ]
-
-db.update('users', insertArgs[], selectArgs[]);
-  [whereQuery, whereArgs] = getSelectQueryComponent(selectArgs)
-  [[]] = getInsertQueryComponent(insertArgs)
-
-
-db.delete('users', ...arguments);
-  [whereQuery, whereArgs] = getSelectQueryComponent(arguments)
-
-constructFinalQuery(start, selectComponent, insertComponent)
-  let finalQuery = [];
-  if (insertComponent) {
-    
-  }
-*/
-
 /**
- * Since SQL queries include the table and everything,
- * this is essentially just a connection manager that
- * provides a consistent api and enforces a certain
- * code style for models using MariaDB database.
+ * Simple wrapper around most common database interactions
+ * which also provides a convenient and consistent transaction
+ * api. Omitting some simple query building helpers, this
+ * is essentially just a connection manager. Pools of connections
+ * are stored in a static variable using db urls as keys. A connection
+ * is fetched from appropriate pool by an instance when an operation
+ * is performed and released back to the pool automatically except when in transaction.
  * 
- * It contains helpers for common queries and provides a generic
- * query method to run any kind of query on the database connection.
+ * In a transaction the db instance is temporarily cloned with a special connection where transaction was initiated.
+ * Transaction function takes a function that must return a promise (e.g. async).
+ * When transaction-related code throws or completes(reaches end of provided callback and resolves),
+ * the transaction is automatically commited or rolled back, the temp instance is made unusable
+ * and the connection is released back to the pool. That way transactions kind of follow the same
+ * logical pattern as normal try..catch code blocks do - complete or recover on error:
  * 
- * TODO: really dirty query building, improve readability and reliability, 
- * split into separate testable methods.
+ * let [result, err] = await db.transaction(async function(tdb, connection){
+ *   //tdb - cloned db instance, original may still be used, but it will be outside of transaction using different connection
+ *   //connection === tdb.connection the mysql2 connection used for this transaction. Only this connection's queries will be part of transaction. It will be commited/rolled back and release to pool automatically.
+ *   let [result, fields] = await connection.query('INSERT INTO user (name, password, orgId) VALUES(?)', ['test', 'asdjhgjgv21233ebkhj', 1]);
+ *   let [result1, fields] = await connection.query('INSERT INTO organizations (name, address) VALUES(?)', ['Dank Academy', 'Socrates Meme Square 10']);
+ *   let [result2, fields] connection.query('INSERT INTO permissions (user, targetId, targetTable, mask) VALUES(?)', [result.insertId, result1.insertId, 'organizations', 777]);
+ *   try {
+ *     await connection.query('INSERT INTO logs SET message = `Added a new user and organization in one transaction. Given full rights of organization to the new user`');
+ *   } catch(err){
+ *     console.log('Adding logs failed, but it's not big enough problem to fail the transaction of it!);
+ *   }
+ *   return [result.insertId, result1.insertId, result2.insertId];
+ * });
+ * //we await-ed on transaction, so code below runs after it's commited (or rolled back)
+ * if(err) throw err; //an outer try..catch will get this error, but transaction will still be rolled back, just like you'd expect
+ * let [userId, orgId, permissionId] = result;
+ * console.log('User and organization have been added and user was granted full rights on the organization');
  */
 module.exports =
 class MySQLDatabase extends Database {
   constructor(url) {
     super(url, mysql);
   }
-
-  //create prepared query component(s) from arguments recursively
-  //('SET id = 1, name = "memester"') -- raw query string
-  //VALUES(?), [1, "memester"] -- 2 parameters of a single prepared statement
-  //[ ['SET id = 1, name = "memester"'], [[VALUES(?)], [2, "swagster"]] ] -- array of arrays, each element one of these 3 possibilities
+  
   constructQueryComponent(...args){
-    if(args[0] === 'string'){
+    if(typeof args[0] === 'string'){
       switch(args.length){
         case 1:
           return [ [ args[0], [] ] ];
@@ -68,6 +57,8 @@ class MySQLDatabase extends Database {
         default:
           throw new Error('Unexpected input format');
       }
+    } else if(args[0] instanceof Object && args[0].constructor === Object){
+      return [ [ ' ? ', args[0] ] ];
     }
     const insertComponent = [];
     for(let arg of args){
@@ -77,14 +68,15 @@ class MySQLDatabase extends Database {
   }
 
   constructFinalQuery(start, selectComponent, insertComponent){
-    const finalQuery = [];    
-    if(insertComponent && insertComponent.length !== 0){
-      let [ whereStatement, whereParams ] = selectComponent ? selectComponent : ['', []];
-      for(let insert of insertComponent){
-        let [ modStatement, modParams ] = insert;
+    const finalQuery = [];
+    if(insertComponent && insertComponent.length !== 0){      
+      let whereStatement, whereParams, modStatement, modParams;
+      for(let i = 0; i < insertComponent.length; i++){
+        [modStatement, modParams] = insertComponent[i];
+        [whereStatement, whereParams] = selectComponent ? ( selectComponent[i] || selectComponent[0] ) : ['', []];
         let rowQuery = [ `${start} ${modStatement} ${whereStatement};`, modParams.concat(whereParams) ];
         finalQuery.push(rowQuery);
-      }
+      }    
     } else {
       //will throw on expansion if not provided
       let [ whereStatement, whereParams ] = selectComponent;
@@ -93,18 +85,18 @@ class MySQLDatabase extends Database {
     return finalQuery;
   }
 
-  appendOptions(preparedQueries) {
-    if(!Array.isArray(preparedQueries) || !preparedQueries.every(sub=>Array.isArray(sub))) throw new Error('Prepared queries must be an 2-dimensional array');
-    for(let [index, query] of preparedQueries){
-      let [statement, params] = query;
-      preparedQueries[index][0] = Object.assign({ sql: statement }, queryOptions);
+  appendOptions(preparedQueries) {    
+    for(let query of preparedQueries){      
+      query[0] = Object.assign({ sql: query[0] }, queryOptions);
     }
+    return preparedQueries;
   }
 
   //executes one or more prepared queries
   //argument must be an array in the form of [ [statement1, params1], [statement2, params2]... ] or [statement, params]
   async execute(preparedQueries) {
-    if (typeof preparedQueries !== 'string') throw new TypeError('MySQLDatabase.query only supports strings as it\'s first arguments');
+    if(!preparedQueries.every(q=>Array.isArray(q)) || !preparedQueries.every(q=>typeof q[0] === 'string'))
+      throw new Error('Prepared query construction error: queries must be in the following form: \n [ [statement1, params1], [statement2, params2]... ] or [statement, params]')
     preparedQueries = this.appendOptions(preparedQueries);
     
     const autoRelease = !this.connection;
@@ -113,10 +105,17 @@ class MySQLDatabase extends Database {
     //it's called "silly" for a reason
     Logger.silly(`Executing ${preparedQueries.length} prepared quer${preparedQueries.length === 1 ? 'y' : 'ies'}`);
 
+    //NOTE: in mysql2 connection.execute is a proper mysql prepared statement - sends data using binary protocoles straight to server in a separate request, so
+    //'javascriptey' emulation of prepared statements like e.g. expanding objects into key = value, ... lists isn't possible. Because the db class methods are simple
+    //convenience for most commonly used primitive operations, we don't utilize it here for sake of simplicity. The code philosophy of this template encourages using
+    //the .transaction api or directly obtaining a mysql2 connection with await db.connect() for anything more complex.
+
+    //TL;DR: .query methods are NOT actual prepared statements - they simply escape the data property on *serverside* before sending plain queries.
+    //Don't use it for binary data like images - use db.transaction(async function(db, conn){ await conn.execute('INSERT INTO binaryTable col = ?', [Buffer.from(imageData)]) });
     if(preparedQueries.length === 1){
-      const [statement, params] = preparedQueries;
+      const [statement, params] = preparedQueries[0];
       Logger.silly(`Executing prepared SQL statement: ${statement} with ${params.length} parameters`);
-      [result, fields] = await connection.execute(statement, params);    
+      let [result, fields] = await connection.query('INSERT INTO products SET ? ;', [{name: 'test4', description: 'test', price: 5.31}]); //await connection.execute(statement, params);    
       if (autoRelease) connection.release();
       return [ [result, fields ] ];
     } else {
@@ -125,42 +124,44 @@ class MySQLDatabase extends Database {
       for(let query of preparedQueries){
         [statement, params] = query;
         Logger.silly(`Executing prepared SQL statement: ${statement} with ${params.length} parameters`);
-        queries.push(connection.execute(statement, params));
+        queries.push(connection.query(statement, params));
       }
-      return await Promise.all(queries);
+      let result = await Promise.all(queries);
+      if (autoRelease) connection.release();
+      return result;
     }
   }
 
   async select(table, ...where) {    
-    const prepared = this.constructFinalQuery(`SELECT * FROM ${table} WHERE `, this.constructQueryComponent(where), null);
+    const prepared = this.constructFinalQuery(`SELECT * FROM ${table} WHERE`, this.constructQueryComponent(where), null);
     const results = this.execute(prepared);
     if(results.length === 1) return results[0];
     else return results;
   }
 
   async insert(table, ...data) {    
-    const prepared = this.constructFinalQuery(`INSERT INTO ${table} SET ?`, null, this.constructQueryComponent(data))
+    const prepared = this.constructFinalQuery(`INSERT INTO ${table}`, null, this.constructQueryComponent('SET ?',data))
     const results = this.execute(prepared);
     if(results.length === 1) return results[0];
     else return results;
   }
 
   async update(table, data, where) {
-    const prepared = this.constructFinalQuery(`UPDATE ${table} SET ? WHERE `, this.constructQueryComponent(where), this.constructQueryComponent(data))
+    const prepared = this.constructFinalQuery(`UPDATE ${table} `, this.constructQueryComponent('WHERE ',where), this.constructQueryComponent(data))
     const results = this.execute(prepared);
     if(results.length === 1) return results[0];
     else return results;
   }
 
   async delete(table, ...where) {
-    const prepared = this.constructFinalQuery(`DELETE FROM ${table} WHERE `, this.constructQueryComponent(where), null);
+    const prepared = this.constructFinalQuery(`DELETE FROM ${table} WHERE`, this.constructQueryComponent(where), null);
     const results = this.execute(prepared);
     if(results.length === 1) return results[0];
     else return results;
   }
 
   async count(table, ...where) {
-    const prepared = this.constructFinalQuery(`SELECT COUNT(*) FROM ${table} WHERE `, this.constructQueryComponent(where), null);
+    const prepared = this.constructFinalQuery(`SELECT COUNT(*) FROM ${table} WHERE`, this.constructQueryComponent(where), null);
     const results = this.execute(prepared);
     if(results.length === 1) return results[0];
     else return results;
@@ -183,31 +184,6 @@ class MySQLDatabase extends Database {
     }
   }
 
-  /* Usage:
-  let [result, error] = await db.transaction(async function(tdb, connection){
-    //everything inside this function is a transaction
-    //if anything here throws transaction is automatically rolled back
-    //if this runs to completion, transaction is automatically commited
-    //if you catch errors without re-throwing, they will not be considered errors, and transaction will still be commited
-    //if you catch the outer block, transaction will still be rolled back on error    
-    await tdb.insert({some: 'data'}, 'myTable');
-    await tdb.update({more: 'data'}, "memes = 'dank'", 'anotherTable');
-    await connection.query('LOAD IN FILE "mydata.csv" INTO myTable');
-    let query = ['BEGIN'];
-    query.push('INSERT INTO bigTable(col1,col2,col3) VALUES (1,2,3);');
-    //...    
-    query.push('END;')
-    await connection.query(query.join('\n'));
-    //transaction NOT commited yet - data not yet available!
-  });
-  //transaction now commited or rolled back
-  if(err) throw err;
-  let data = await db.select('myData', 'some = data');
-  data === RowDataPacket
-
-  //connection === tdb.connection === mysql2.Connection, just for convenience. You can use it for
-  //complex custom queries such as load in file, begin; end; multirow inserts and anything else that the driver supports.  
-  */
   transaction(transaction){
     if(typeof transaction !== 'function') return Promise.reject(new TypeError('Transaction takes a promise-returning function.'));
     const transactionInstance = new MySQLDatabase(this.url);
@@ -223,13 +199,14 @@ class MySQLDatabase extends Database {
             return promise;
           })
           //propagate the result of user's callback to the end of chain
-          .then((result)=>connection.commit().then(()=>result))
+          .then((result)=>connection.commit().then(()=>[result, null]))
           .catch((err)=>{
             connection.rollback();
             Logger.error(`Rolled back transaction due to error: \n${err.message}`);
             return [null, err];
           })
-          .finally((result)=>{
+          //finally - release connection and mark the cloned instance used
+          .then((result)=>{
             transactionInstance.connection.release();
             transactionInstance.connection = null;
             transactionInstance.dead = true;

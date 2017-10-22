@@ -2,20 +2,23 @@ const { expect } = require('chai');
 const { Utils, Logger } = require('common');
 const { MySQLDatabase } = require('database');
 
-const db = new MySQLDatabase(encodeURI(`mysql://${process.env['MARIA_TEST_USER']}:${process.env['MARIA_TEST_PASS']}@${process.env['MARIA_TEST_HOST']}/test`));
+const db = new MySQLDatabase(encodeURI(`mysql://${process.env['MARIA_TEST_USER']}:${process.env['MARIA_TEST_PASS']}@${process.env['MARIA_TEST_HOST']}:3306/test`));
 
 const products = [
   { 
     name: 'Thunder Socks', 
-    description: 'The socks of Power™' 
+    description: 'The socks of Power™',
+    price: 5.55
   },
   { 
     name: 'Lightsaber', 
-    description: 'Any Lightsaber > The One True Ring' 
+    description: 'Any Lightsaber > The One True Ring',
+    price: 3400.00
   },
   { 
     name: 'Koreshluck', 
-    description: 'The power to always fail even with 99% chance of success' 
+    description: 'The power to always fail even with 99% chance of success',
+    price: 0.00
   }
 ];
 
@@ -94,21 +97,26 @@ describe('MySQLDatabase tests', async function () {
       });
       throw new Error('Controlled error');
     } catch (err) {
-      Logger.info(`Failed with an ${err.message}`);
+      Logger.info(`Failed with ${err.message}`);
     }
   });
 });
 
 after(async function () {
   const connection = await db.connect();
-  const [tables] = await connection.query('SHOW TABLES');
-  const truncate = [];
+  const [tables] = await connection.query('SHOW TABLES');  
+  const truncates = [];
+  let query;
   for (let tableData of tables) {
     for (let tableName of Object.values(tableData)) {
       Logger.info('Cleanup: Truncating ' + tableName);
-      truncate.push(connection.query(`TRUNCATE TABLE ${tableName};`));
+      query = `TRUNCATE ${tableName};`;
+      if(tableName.startsWith('join')) truncates.splice(0,0,query);
+      else truncates.push(query);
     }
   }
-  await Promise.all(truncate);
+  truncates.splice(0,0,'SET FOREIGN_KEY_CHECKS = 0;');
+  truncates.push('SET FOREIGN_KEY_CHECKS = 1;');
+  await connection.query(truncates.join('\n'));
   connection.release();
 })
