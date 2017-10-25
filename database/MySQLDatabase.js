@@ -53,7 +53,9 @@ class MySQLDatabase extends Database {
         case 1:
           return [ [ args[0], [] ] ];
         case 2:
-          return [ [ args[0], args[1] ] ];
+          if(Array.isArray(args[1])){
+            return [ args[1].map(data=>[args[0], data]) ];
+          } else return [ [ args[0], args[1] ] ];
         default:
           throw new Error('Unexpected input format');
       }

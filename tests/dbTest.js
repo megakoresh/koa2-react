@@ -40,14 +40,18 @@ const warehouses = [
 describe('MySQLDatabase tests', async function () {
   it('Tests that connection works', async function () {
     const connection = await db.connect();
-    connection.release();
+    connection.release(); //sweet release of death
   });
   it('Inserts data', async function () {
     let insertResult = await db.insert('products', products[0]);
     //first at least see if the actual operation completes without exceptions lel
+    Logger.info(`Inserted ${insertResult.affectedRows} rows`);
+    expect(insertResult).to.be.a('number');
+    let moreInserts = await db.insert('products', products.splice(0, 1));
+    expect(moreInserts).
   });
   it('Selects data', async function () {
-
+    let result = db.select('products', 'description LIKE %?%', ['Lightsaber']);
   });
   it('Updates data', async function () {
 
@@ -72,8 +76,9 @@ describe('MySQLDatabase tests', async function () {
   });
   it('Performs a transaction', async function () {
     let transactionResult = await db.transaction(async function (db, connection) {
-
+  
     });
+
   });
   it('Performs a transaction containing mutiple statements for insert, update, select and delete', async function () {
     let transactionResult = await db.transaction(async function (db, connection) {
