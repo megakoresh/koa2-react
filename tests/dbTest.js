@@ -48,7 +48,6 @@ describe('MySQLDatabase tests', async function () {
     Logger.info(`Inserted ${insertResult.affectedRows} rows`);
     expect(insertResult).to.be.a('number');
     let moreInserts = await db.insert('products', products.splice(0, 1));
-    expect(moreInserts).
   });
   it('Selects data', async function () {
     let result = db.select('products', 'description LIKE %?%', ['Lightsaber']);
