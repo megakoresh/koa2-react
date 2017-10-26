@@ -45,9 +45,14 @@ describe('MySQLDatabase tests', async function () {
   it('Inserts data', async function () {
     let insertResult = await db.insert('products', products[0]);
     //first at least see if the actual operation completes without exceptions lel
+    expect(insertResult[0][0].insertId > 0).to.be.true;
+    //insert other products
+    let moreInserts = await db.insert('products', products.splice(1, 0));
+    expect(moreInserts.affectedRows === 2).to.be.true;
   });
   it('Selects data', async function () {
-
+    let products = await db.select('product', 'name LIKE %?%',['saber']);
+    expect(!products).to.be.false;
   });
   it('Updates data', async function () {
 

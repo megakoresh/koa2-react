@@ -46,27 +46,32 @@ class MySQLDatabase extends Database {
   constructor(url) {
     super(url, mysql);
   }
-  
+  //should return an array containing "tuples", where the first argument is a prepared statement, and second is a set of parameters for it. For example
+  //[ [ 'id = ? OR title LIKE %?%', [69, 'master'] ], [ '(?)', [ [1,2,3,4] ] ], [ '?', { hash: '0x34521', name: 'Uroboros' } ] ]
+  //the prepared statement syntax follows mysqljs expansion rules. Every "tuple" will conform to a separate SQL query, and yield it's own set of results
+  //this function is intended for use primarily inside this class, but you can use it as a helper for constructing prepared statement arguments as well
   constructQueryComponent(...args){
     if(typeof args[0] === 'string'){
       switch(args.length){
         case 1:
           return [ [ args[0], [] ] ];
-        case 2:
+        case 2:          
           return [ [ args[0], args[1] ] ];
         default:
           throw new Error('Unexpected input format');
       }
     } else if(args[0] instanceof Object && args[0].constructor === Object){
-      return [ [ ' ? ', args[0] ] ];
+      return [ [ ' ? ', [ args[0] ] ] ];
     }
     const insertComponent = [];
     for(let arg of args){
-      insertComponent.push(this.constructQueryComponent.apply(this, arg));
+      let statement = this.constructQueryComponent.apply(this, arg);
+      insertComponent.push(...statement);
     }
     return insertComponent;
   }
 
+  //returns an array of full query objects that all begin with 'start', and contains as many elements as there are 
   constructFinalQuery(start, selectComponent, insertComponent){
     const finalQuery = [];
     if(insertComponent && insertComponent.length !== 0){      
@@ -77,10 +82,17 @@ class MySQLDatabase extends Database {
         let rowQuery = [ `${start} ${modStatement} ${whereStatement};`, modParams.concat(whereParams) ];
         finalQuery.push(rowQuery);
       }    
-    } else {
-      //will throw on expansion if not provided
+    } else if(!selectComponent){
+      throw new TypeError('Select component must not be undefined when not insertComponent is present');
+    } else if(Array.isArray(selectComponent[0])){
+        for(let selectQuery of selectComponent){
+          finalQuery.push(...this.constructFinalQuery.apply(this,[start, selectQuery]));
+        }        
+    } else if(typeof selectComponent[0] === 'string') {
       let [ whereStatement, whereParams ] = selectComponent;
       finalQuery.push([`${start} ${whereStatement}`, whereParams]);
+    } else {
+      throw new TypeError('Select component can either be an array of select statements (each for a separate query) or a single statement with a string as first element and array of parameters are the second');      
     }
     return finalQuery;
   }
@@ -94,6 +106,7 @@ class MySQLDatabase extends Database {
 
   //executes one or more prepared queries
   //argument must be an array in the form of [ [statement1, params1], [statement2, params2]... ] or [statement, params]
+  //params may or may not be present, if omitted the query is treated like already escaped raw query, but at least an empty array must be passed
   async execute(preparedQueries) {
     if(!preparedQueries.every(q=>Array.isArray(q)) || !preparedQueries.every(q=>typeof q[0] === 'string'))
       throw new Error('Prepared query construction error: queries must be in the following form: \n [ [statement1, params1], [statement2, params2]... ] or [statement, params]')
@@ -115,7 +128,7 @@ class MySQLDatabase extends Database {
     if(preparedQueries.length === 1){
       const [statement, params] = preparedQueries[0];
       Logger.silly(`Executing prepared SQL statement: ${statement} with ${params.length} parameters`);
-      let [result, fields] = await connection.query('INSERT INTO products SET ? ;', [{name: 'test4', description: 'test', price: 5.31}]); //await connection.execute(statement, params);    
+      let [result, fields] = await connection.query(statement, params);
       if (autoRelease) connection.release();
       return [ [result, fields ] ];
     } else {
@@ -139,8 +152,9 @@ class MySQLDatabase extends Database {
     else return results;
   }
 
-  async insert(table, ...data) {    
-    const prepared = this.constructFinalQuery(`INSERT INTO ${table}`, null, this.constructQueryComponent('SET ?',data))
+  async insert(table, ...data) {
+    if(data.length === 0) throw new Error('Tried to insert empty dataset (no second argument on insert)');
+    const prepared = this.constructFinalQuery(`INSERT INTO ${table} SET`, null, this.constructQueryComponent(data))
     const results = this.execute(prepared);
     if(results.length === 1) return results[0];
     else return results;
