@@ -55,7 +55,7 @@ describe('MySQLDatabase tests', async function () {
     expect(!products).to.be.false;
   });
   it('Updates data', async function () {
-
+    
   });
   it('Selects updated data', async function () {
 
