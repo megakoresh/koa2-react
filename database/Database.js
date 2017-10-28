@@ -15,8 +15,11 @@ const { Logger } = require('common');
 module.exports = 
 class Database {
   constructor(url){
-    this.url = url;    
-    process.on('SIGINT', this.disconnect);
+    this.url = url;
+    process.on('exit', this.disconnect);
+    process.on('SIGINT', this.disconnect);    
+    process.on('SIGUSR1', this.disconnect);
+    process.on('SIGUSR2', this.disconnect);    
   }
 
   //return some kind of result set from the query object passed

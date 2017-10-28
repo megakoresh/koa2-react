@@ -4,4 +4,6 @@ CREATE TABLE warehouses(
   info TEXT,
   UNIQUE INDEX id (id),
   PRIMARY KEY (id)
-);
+)
+CHARACTER SET 'utf8' 
+COLLATE 'utf8_general_ci';

@@ -161,6 +161,39 @@ class Utils {
       }
     }
   }
+
+  /**
+   * Checks if the passed object is a JSON-serializable data object. 100% legit no fake (2017)
+   * @param {*} object to test for legitimacy
+   * @returns {Boolean} true if legit, false if busted
+   */
+  static legitObject(object){
+    //seems legit
+    return typeof object === 'object' && object.constructor === Object && JSON.stringify(object);
+  }
+
+  static selectRandom(from, remove){
+    if (!Array.isArray(from)) throw new Error("from must be an array of choices! Was " + from);
+    if (from.length === 0) throw new Error("Can't select from an empty array");
+    let rand = Math.round(Utils.random(0, from.length - 1));
+    let value = from[rand];
+    if (remove === true) {
+      from.splice(rand, 1);      
+    }
+    return value;
+  }
+
+  static random(min, max){
+    return min + ((max-min) * Math.random());
+  }
+
+  static generateArray(times, generator, ...args){
+    const result = [];
+    for(let i = 0; i<times; i++){
+      result.push(generator(i, ...args));
+    }
+    return result;
+  }
 }
 
 module.exports = Utils;
