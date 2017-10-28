@@ -121,8 +121,9 @@ class SQLQuery {
 
 module.exports =
 class MySQLDatabase extends Database {
-  constructor(url) {
+  constructor(url, inTransaction) {
     super(url, mysql);
+    Logger.info(`Created a MySQLDatabase instance ${inTransaction ? 'for a transaction' : `with a url ${url}`}`);
   }
 
   static get SQLQuery() { 
@@ -219,8 +220,9 @@ class MySQLDatabase extends Database {
   async disconnect() {
     for (let [name, pool] of Utils.iterateObject(CONNECTIONS)) {
       Logger.info(`Closing ${name}`);
-      await pool.end();
-    }
+      await pool.end();      
+      delete CONNECTIONS[name];
+    }    
   }
 
   /**
@@ -238,7 +240,7 @@ class MySQLDatabase extends Database {
    */
   transaction(transaction){
     if(typeof transaction !== 'function') return Promise.reject(new TypeError('Transaction takes a promise-returning function.'));
-    const transactionInstance = new MySQLDatabase(this.url);
+    const transactionInstance = new MySQLDatabase(this.url, true);
     return transactionInstance.connect()
       .then(connection=>{
         return connection.beginTransaction()
