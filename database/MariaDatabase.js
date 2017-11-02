@@ -249,6 +249,7 @@ class MariaDatabase extends Database {
   }
 
   async disconnect() {
+    if(!CONNECTIONS[this.url]) return;
     Logger.info(`Closing ${CONNECTIONS[this.url]}`);
     await CONNECTIONS[this.url].end();
     delete CONNECTIONS[this.url];    
