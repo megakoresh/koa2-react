@@ -1,18 +1,19 @@
 const Controller = require('./Controller');
 
-module.exports = 
 class UserController extends Controller {
-  constructor(router){
-    super(router);
-    router.post('/profile/:user', this.profile);
+  static routes(router){
+    router.post('/profile/:id', this.profile);
     router.post('/logout', this.logout);
+    return router;
   }
 
-  profile(ctx, next){
+  static async profile(ctx, next){
     //if the authenticate worked, user info should be in ctx.state
   }
 
-  logout(ctx, next){
+  static async logout(ctx, next){
 
   }
 }
+
+exports.controller = UserController;
