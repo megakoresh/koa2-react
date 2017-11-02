@@ -11,6 +11,7 @@ const SYMBOL_KEY = 'modulesLoadedSymbolKey';
  */
 module.exports = class Model {
   constructor(data){
+    if(!data) throw new Error('A model can not be constructed with no data, please provide at least something');
     if(!global[Model.MODELS_LOADED_FLAG]){
       throw new Error(`Models have not been loaded, please call require('models') once before executing any model code`);
     }
@@ -38,7 +39,7 @@ module.exports = class Model {
    * @param {Database} newdb Database that all database records will use from the moment of invoking this function
    */
   static set DB(newdb){
-    throw new Error(`${Utils.getCurrentClassName(this)} does not support switching databases`);
+    throw new Error(`${Utils.getObjectClassName(this)} does not support switching databases`);
   }
 
   /**
@@ -72,33 +73,6 @@ module.exports = class Model {
   // via ChildModel.datastore
   static get datastore(){
     throw new Error(`Model.datastore getter is abstract and must be implemented by subclasses`)
-  }
-
-  /**
-   * Implemented by subclasses to begin transaction.
-   * Non-SQL subclasses can ignore this method
-   * @return {Promise} something indicating that transaction has started
-   */
-  static async startTransaction(){
-    
-  }
-
-  /**
-   * Implemented by subclasses to commit transaction.
-   * Non-SQL subclasses can ignore this method
-   * @return {Promise} something indicating that transaction has been successfully commited
-   */
-  static async commitTransaction(){
-
-  }
-
-  /**
-   * Implemented by subclasses to rollback transaction.
-   * Non-SQL subclasses can ignore this method
-   * @return {Promise} something indicating that transaction has been successfully rolled back
-   */
-  static async rollbackTransaction(){
-
   }
 
   /**
@@ -239,8 +213,8 @@ module.exports = class Model {
   [Symbol.toPrimitive](hint){
     if(hint !== 'number'){
       //Model: id = 1, field1 = someValue, field2 = another, okidoki = 1...
-      return `${Utils.getCurrentClassName(this)}: ${Object.keys(this).map(k=>`${k} = ${this[k]}`).slice(0,4).join(', ')} ...`;
+      return `${Utils.getObjectClassName(this)}: ${Object.keys(this).map(k=>`${k} = ${this[k]}`).join(', ').substring(0, 60)} ...`;
     }
-    throw new TypeError(`${Utils.getCurrentClassName(this)} can not be cast to number`);
+    throw new TypeError(`${Utils.getObjectClassName(this)} can not be cast to number`);
   }
 }

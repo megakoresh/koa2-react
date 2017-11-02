@@ -116,8 +116,13 @@ class Utils {
     return models;
   }
 
-  static getCurrentClassName(_this) {
-    return _this.toString().split('(' || /s+/)[0].split(' ' || /s+/)[1];
+  static getObjectClassName(object) {
+    if(object.constructor.name === 'Function' && object.name)
+      return object.name;
+    if(object.constructor.name !== 'Object')
+      return object.constructor.name;
+    else
+      return object.toString().split('(' || /s+/)[0].split(' ' || /s+/)[1];
   }
 
   static flatten(array) {
@@ -172,6 +177,12 @@ class Utils {
     return typeof object === 'object' && object.constructor === Object && JSON.stringify(object);
   }
 
+  /**
+   * The true God.
+   * @param {Array} from the universe
+   * @param {Boolean} remove humbly request thy object be freed of the physical
+   * @returns {*} the chosen one to echo through the ages
+   */
   static selectRandom(from, remove){
     if (!Array.isArray(from)) throw new Error("from must be an array of choices! Was " + from);
     if (from.length === 0) throw new Error("Can't select from an empty array");

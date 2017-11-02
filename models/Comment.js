@@ -19,7 +19,7 @@ class Comment extends MongoModel {
 
   static set DB(newdb) {
     if (newdb instanceof MongoDatabase) {
-      Logger.warn(`Warning! Switching database for ${Utils.getCurrentClassName(this)}! All records from now on will operate with ${newdb.url}`);
+      Logger.warn(`Warning! Switching database for ${Utils.getObjectClassName(this)}! All records from now on will operate with ${newdb.url}`);
       db = newdb;
     } else {
       throw new TypeError(`This model only supports MongoDatabase type, was ${newdb.constructor.name}`);

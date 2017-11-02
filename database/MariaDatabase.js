@@ -54,6 +54,7 @@ class SQLQuery {
     } else {
       throw new Error('Clause of where statement must be an object, an array of objects, as string or an integer row id')
     }
+    this._where = this.query.length-1;
     return this;
   }
 
@@ -61,12 +62,24 @@ class SQLQuery {
     if(this.query.length !== 0) throw new Error(`Insert query must begin with insert clause, but something else was called before: ${this.query.join(' ')}`);    
     this.query.push(`INSERT INTO ${this.table}\n`);    
     this.query.push(clause);
+    this._index = this.query.length - 2;
     return this;
   }
 
-  join(clause){
-    if(this.query.length === 0) throw new Error('Query can not begin with a join statement');
-    this.query.push(clause);
+  join(joinType, otherTable, thisTableKey, otherTableKey, overrideThisTable){
+    const fkTable = overrideThisTable || this.table;
+    if(this.query.length === 0) this.query.push(`SELECT * FROM ${this.table}`);
+    let where;    
+    if(this._where){ 
+      console.warn(`Detected that where clause was attached BEFORE the join. That is bad, yes? Will try to reorder, but no promises`);
+      where = this.query.splice(this._where, 1)[0];      
+    }
+    if(typeof thisTableKey === 'string' && typeof otherTableKey === 'undefined') 
+      this.query.push(`${joinType} ${otherTable} ON ${thisTableKey}`);
+    else 
+      this.query.push(`${joinType} ${otherTable} ON ${otherTable}.${otherTableKey} = ${fkTable}.${thisTableKey}`);
+    this._join = this.query.length-1;
+    if(where) this.query.push(where); //if where was set BEFORE the join, reorder it to the end
     return this;
   }
   
@@ -74,18 +87,29 @@ class SQLQuery {
     if(this.query.length !== 0) throw new Error(`Update queries must begin with update clause, but something else was called before: ${this.query.join(' ')}`);
     this.query.push(`UPDATE ${this.table}\n`);
     this.query.push(clause);
+    this._update = this.query.length - 2;
     return this;  
   }
 
   delete(){
     if(this.query.length !== 0) throw new Error(`Delete queries must begin with delete clause, but something else was called before: ${this.query.join(' ')}`);
     this.query.push(`DELETE FROM ${this.table}\n`);
+    this._delete = this.query.length -1;
+    return this;
+  }
+
+  modifiers(clause){
+    if(this.query.length === 0) throw new Error('Modifiers like order by and limit are set at the end of the query!');
+    if(typeof clause !== 'string') throw new Error('Modifiers must be a string');
+    this.query.push(clause);
+    this._modifiers = this.query.length -1;
     return this;
   }
 
   count(){
     if(this.query.length !== 0) throw new Error(`Count queries must begin with count clause, but something else was called before: ${this.query.join(' ')}`);
     this.query.push(`SELECT COUNT(*) as count FROM ${this.table}\n`);
+    this._count = this.query.length -1;
     return this;
   }
   
@@ -100,6 +124,9 @@ class SQLQuery {
           }
         }
       }
+      if(Array.isArray(value) && value.length === 0){
+        throw new Error('Can not pass empty arrays as query values, please an array value must have at least one element');
+      }
     }
     this.params.push(...values);
     return this;
@@ -110,20 +137,24 @@ class SQLQuery {
   }
 
   prepare(options){
-    if(this.params.length === 0){ 
-      return [this.toString()]; 
+    if(!options) options = {};    
+    const final = this.toString();
+    //nest tables on joined queries, since they have high chance at field collision, at least for IDs
+    if(typeof options.nestTables === 'undefined' && this._join) {
+      options.nestTables = true;
     }
-    const final = this.toString();     
     if(this.expectedParams !== this.params.length) throw new Error(`Number of parameters(${this.params.length}) did not match the number of placeholders in the prepared query(${placeholders.length})!`);    
-    return [ Object.assign({ sql: final }, options), this.params ];
+    const query = Object.keys(options).length > 0 ? Object.assign({ sql: final }, options) : final;
+    if(this.params.length === 0) return [ query ]; 
+    else return [ query, this.params ];
   }  
 }
 
 module.exports =
-class MySQLDatabase extends Database {
+class MariaDatabase extends Database {
   constructor(url, inTransaction) {
     super(url, mysql);
-    Logger.info(`Created a MySQLDatabase instance ${inTransaction ? 'for a transaction' : `with a url ${url}`}`);
+    Logger.info(`Created a MariaDatabase instance ${inTransaction ? 'for a transaction' : `with a url ${url}`}`);
   }
 
   static get SQLQuery() { 
@@ -207,7 +238,7 @@ class MySQLDatabase extends Database {
   }
 
   async connect() {
-    if(this.dead) throw new Error(`This instance of MySQLDatabase was cloned for a transaction and is now dead, please use original`);
+    if(this.dead) throw new Error(`This instance of MariaDatabase was cloned for a transaction and is now dead, please use original`);
     if(this.connection) return this.connection;
     if (!CONNECTIONS[this.url]) {
       let pool = mysql.createPool(this.url+'?multipleStatements=true&connectionLimit=100'); //to debug add &debug=[\'ComQueryPacket\'] to the url
@@ -218,35 +249,34 @@ class MySQLDatabase extends Database {
   }
 
   async disconnect() {
-    for (let [name, pool] of Utils.iterateObject(CONNECTIONS)) {
-      Logger.info(`Closing ${name}`);
+    Logger.info(`Closing ${CONNECTIONS[this.url]}`);
+    await CONNECTIONS[this.url].end();
+    delete CONNECTIONS[this.url];    
+  }
+
+  static async disconnect(){
+    Logger.info('Closing all MariaDatabase connections for all instances');
+    for (let [url, pool] of Utils.iterateObject(CONNECTIONS)) {
+      Logger.info(`Closing ${url}`);
       await pool.end();      
-      delete CONNECTIONS[name];
-    }    
+      delete CONNECTIONS[url];
+    }
   }
 
   /**
-   * This function must contain all operations performed during the transaction. The transaction will be automatically commited if no errors occurred, or rolled back if any do.
-   * @callback MySQLDatabase~transactionCallback
-   * @param {MySQLDatabase} db temporary database instance to use during transaction (a copy of the one used to launch transaction)
-   * @param {mysql.Connection} connection the connection object from mysql2 driver that will perform the transaction, equal to db.connection
-   * @returns {Promise} promise that resolves when all transaction operations have completed. You may throw or return a rejected promise to trigger rollback
-   */
-
-  /**
    * Runs operations defined in the provided function callback in a transaction and commits it automatically, or rolls it back on any error
-   * @param {MySQLDatabase~transactionCallback} transaction function that runs operations in transaction and returns a promise that resolves/rejects when the transaction is complete/failed
+   * @param {MariaDatabase~transactionCallback} transactionFn function that runs operations in transaction and returns a promise that resolves/rejects when the transaction is complete/failed
    * @returns {Promise<Array>} promise that resolves to a two-value array, where array[0] is what your transactionCallback returned, or null and array[1] is an error if any occurred.
    */
-  transaction(transaction){
-    if(typeof transaction !== 'function') return Promise.reject(new TypeError('Transaction takes a promise-returning function.'));
-    const transactionInstance = new MySQLDatabase(this.url, true);
+  transaction(transactionFn){
+    if(typeof transactionFn !== 'function') return Promise.reject(new TypeError('Transaction takes a promise-returning function.'));
+    const transactionInstance = new MariaDatabase(this.url, true);
     return transactionInstance.connect()
       .then(connection=>{
-        return connection.beginTransaction()
-          .then(()=>transactionInstance.connection = connection)
+        return connection.beginTransaction()          
           .then(()=>{
-            let promise = transaction(transactionInstance, connection);
+            transactionInstance.connection = connection;
+            let promise = transactionFn(transactionInstance, connection);
             if(typeof promise.then !== 'function'){
               throw new Error('Transaction callback must return a promise!');
             }
@@ -264,8 +294,19 @@ class MySQLDatabase extends Database {
             transactionInstance.connection.release();
             transactionInstance.connection = null;
             transactionInstance.dead = true;
+            process.removeListener('exit', this.disconnect);
+            process.removeListener('SIGINT', this.disconnect);    
+            process.removeListener('SIGUSR1', this.disconnect);
+            process.removeListener('SIGUSR2', this.disconnect);    
             return result;
           });
       });      
   }
+  /**
+   * This function must contain all operations performed during the transaction. The transaction will be automatically commited if no errors occurred, or rolled back if any do.
+   * @callback MariaDatabase~transactionCallback
+   * @param {MariaDatabase} db temporary database instance to use during transaction (a copy of the one used to launch transaction)
+   * @param {mysql.Connection} connection the connection object from mysql2 driver that will perform the transaction, equal to db.connection
+   * @returns {Promise} promise that resolves when all transaction operations have completed. You may throw or return a rejected promise to trigger rollback
+   */
 }

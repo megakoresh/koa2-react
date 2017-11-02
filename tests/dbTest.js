@@ -1,8 +1,8 @@
 const { expect } = require('chai');
 const { Utils, Logger } = require('common');
-const { MySQLDatabase } = require('database');
+const { MariaDatabase } = require('database');
 
-const db = new MySQLDatabase(encodeURI(`mysql://${process.env['MARIA_TEST_USER']}:${process.env['MARIA_TEST_PASS']}@${process.env['MARIA_TEST_HOST']}:3306/test`));
+const db = new MariaDatabase(encodeURI(`mysql://${process.env['MARIA_TEST_USER']}:${process.env['MARIA_TEST_PASS']}@${process.env['MARIA_TEST_HOST']}:3306/test`));
 
 const joinTable = 'join_products_warehouses';
 
@@ -39,7 +39,7 @@ const warehouses = [
   }
 ];
 
-describe('MySQLDatabase tests', async function () {
+describe('MariaDatabase tests', async function () {
   it('Tests that connection works', async function () {
     const connection = await db.connect();
     connection.release();
@@ -116,7 +116,7 @@ describe('MySQLDatabase tests', async function () {
     [data, fields] = await db.select('warehouses', 'id = ?', id);
     expect(data[0].address).to.equal('Улица Страстного Десанта 42');
   });
-  it('Performs a transaction containing mutiple statements for insert, update, select and delete', async function () {
+  it('Performs transactions containing mutiple statements for insert, update, select and delete', async function () {
     let transactionResult = await db.transaction(async function (db, connection) {
       let [products, fields] = await db.select('products');
       expect(products.length).to.equal(3);
@@ -195,22 +195,3 @@ describe('MySQLDatabase tests', async function () {
     expect(threw);
   });
 });
-
-after(async function () {
-  const connection = await db.connect();
-  const [tables] = await connection.query('SHOW TABLES');  
-  const truncates = [];
-  let query;
-  for (let tableData of tables) {
-    for (let tableName of Object.values(tableData)) {
-      Logger.info('Cleanup: Truncating ' + tableName);
-      query = `TRUNCATE ${tableName};`;
-      if(tableName.startsWith('join')) truncates.splice(0,0,query);
-      else truncates.push(query);
-    }
-  }
-  truncates.splice(0,0,'SET FOREIGN_KEY_CHECKS = 0;');
-  truncates.push('SET FOREIGN_KEY_CHECKS = 1;');
-  await connection.query(truncates.join('\n'));
-  connection.release();
-})

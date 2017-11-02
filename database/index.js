@@ -1,3 +1,3 @@
 exports.Database = require('./Database');
 exports.MongoDatabase = require('./MongoDatabase');
-exports.MySQLDatabase = require('./MySQLDatabase');
+exports.MariaDatabase = require('./MariaDatabase');

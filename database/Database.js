@@ -16,6 +16,10 @@ module.exports =
 class Database {
   constructor(url){
     this.url = url;
+    this.listerners();
+  }
+
+  listerners(){
     process.on('exit', this.disconnect);
     process.on('SIGINT', this.disconnect);    
     process.on('SIGUSR1', this.disconnect);

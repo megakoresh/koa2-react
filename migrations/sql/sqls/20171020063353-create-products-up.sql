@@ -11,5 +11,6 @@ CREATE TABLE products(
   UNIQUE INDEX id (id),
   PRIMARY KEY (id)
 )
-CHARACTER SET 'utf8' 
+CHARACTER SET 'utf8'
+#enables canse insensitive search on text fields using LIKE
 COLLATE 'utf8_general_ci';

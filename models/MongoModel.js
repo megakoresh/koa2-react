@@ -103,7 +103,7 @@ module.exports = class MongoModel extends Model {
   async get(){
     const cursor = await this.db.select((this.id) ? new mongodb.ObjectId(this.id) : this.serialize(), this.datastore);
     const record = await cursor.next();
-    if(record === null) throw new Error(`get() called on instance of ${Utils.getCurrentClassName(this)}, but nothing was found, this record must have MongoDB id or other primary key set, was ${this.id}`);
+    if(record === null) throw new Error(`get() called on instance of ${Utils.getObjectClassName(this)}, but nothing was found, this record must have MongoDB id or other primary key set, was ${this.id}`);
     this.deserialize(record);
     return this;
   }
