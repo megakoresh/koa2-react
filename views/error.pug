@@ -1,6 +1,6 @@
 extends layout.pug
 
 block body
-  h1 Shiiiiieeeet boi! An error!
+  h1= error.message || 'An error occurred while processing your request'
   p Pretend like you know what this means:
-  pre= message
+  pre= error.stack

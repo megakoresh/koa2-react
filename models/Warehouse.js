@@ -1,8 +1,8 @@
 const MariaModel = require('./MariaModel');
 const { MariaDatabase } = require('database');
-const { Utils, Logger } = require('common');
+const { Utils, Logger, config } = require('common');
 
-let db = new MariaDatabase(encodeURI(`mysql://${process.env['MARIA_USER']}:${process.env['MARIA_PASSWORD']}@${process.env['MARIA_HOST']}/koa2_react`));
+let db = config.defaultMaria;
 let tableName = 'warehouses';
 
 class Warehouse extends MariaModel {

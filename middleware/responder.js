@@ -1,140 +1,108 @@
 const pug = require('pug');
 const path = require('path');
+const ejs = require('ejs');
+const fs = require('fs');
 
-const { config, Logger } = require('common');
+const { config, Logger, Utils } = require('common');
 
-const RESPONSE_TYPE_HTML =   'RT_HTML';
-const RESPONSE_TYPE_JSON =   'RT_JSON';
-const RESPONSE_TYPE_ERROR =  'RT_ERROR';
+class Responder {
+  constructor(app, appRoot){
+    this.app = app;
+    if(!appRoot) appRoot = config.appRoot;
+    this.views = path.join(appRoot, 'views');
+    app.context.view = this.view.bind(this);
+    app.context.json = this.json.bind(this);
+    app.context.raw = this.raw.bind(this);
+    app.context.websocket = this.websocket.bind(this);
+  }
 
-//irrelevant right now
-//const RESPONSE_TYPE_WS =     'RT_WEBSOCKET';
-//const RESPONSE_TYPE_BINARY = 'RT_BINARY';
+  get pugOptions(){
+    const options = {
+      Utils //expose util functions to the templates      
+    }
+    if(this.viewToRender && config.env === 'production') options.cache = true;
+    if(options.cache) options.filename = path.basename(this.viewToRender);
+    return options;
+  }
 
-let appRoot = config.appRoot;
-let pugConfig = {
-  basedir: path.join(appRoot, 'views'),
-  //cache: true //TODO: you want to turn this on for production  
-}
+  get ejsOptions(){
+    const options = {
+      locals: {
+        Utils //expose util functions to the templates      
+      },
+      _with: false
+    }
+    if(this.viewToRender && config.env === 'production') options.cache = true;
+    if(options.cache) options.filename = path.basename(this.viewToRender);
+    return options;
+  }
 
-function renderView(filePath, locals){
-  //choose render engine, by default use pug
-  return pug.renderFile(filePath, locals);
-}
+  view(view, data){
+    if(view.includes('/views'))
+      this.viewToRender = path.relative(this.views, view);
+    else
+      this.viewToRender = view;
+    this.data = data;
+  }
 
-//Renders responses using settings provided
-class Renderer {
-  constructor(data, type, view){
-    this.data = data || {};
-    this.type = type || RESPONSE_TYPE_HTML;
-    this.view = view || 'views/notfound.pug';
+  json(data){
+    this.data = data;
+  }
+
+  raw(stringBufferOrStream){
+    if(stringBufferOrStream instanceof Buffer || stringBufferOrStream instanceof ReadableStream || typeof stringBufferOrStream === 'string')
+      this.data = stringBufferOrStream;
+    else Logger.error('Can not send raw response - not a buffer, string or readabale stream');
+  }
+
+  websocket(){
+    throw new Error('Not implemented');
   }
 
   render(ctx){
-    if(ctx.renderd === true){
-      Logger.warn(`ctx.rendered flag is set to true, renderer will skip`);
-      return ctx;
-    }
-    switch(this.type){
-      case RESPONSE_TYPE_HTML:
-        //its this ugly because for some reason PUG configuration options are the same as locals
-        //so they must be merged for whatever reason and if we want to be pedantic we must also
-        //make sure none of our code has accidentally assigned an option with the same name as the
-        //configuration (yeah, I know, urgh!)
-        const locals = Renderer.merge(Renderer.PUG_CONFIG, this.data);
-        ctx.body = renderView(path.join(Renderer.APP_ROOT, this.view), locals);
+    if(!this.data) this.data = {};
+    if(this.viewToRender){
+      const ext = path.extname(this.viewToRender);
+      const view = path.join(this.views, this.viewToRender);
+      switch(ext){
+        case '.pug':
+        ctx.body = pug.renderFile(view, Object.assign({},this.data,this.pugOptions))
         break;
-      case RESPONSE_TYPE_JSON:
-        ctx.body = JSON.stringify(this.data);
+        case '.ejs':
+        ctx.body = ejs.render(view, this.data, this.ejsOptions);
         break;
-      case RESPONSE_TYPE_ERROR:
-      default:
-        ctx.status = ctx.status > 400 ? ctx.status : 500;
-        if(!this.data){
-          this.data = { message: `Response type invalid or not supported: ${renderer.type}. This could mean that an unexpected error has occurred` };
-        }        
-        if(ctx.wantsJSON){ //if any of the previous middleware set this flag, use it
-          ctx.body = JSON.stringify(this.data, null, 2);          
-        } else {
-          const locals = Renderer.merge(Renderer.PUG_CONFIG, this.data);
-          ctx.body = renderView(path.join(Renderer.APP_ROOT, 'views', 'error.pug'), locals);
-        }
-        break;        
-    }
-    ctx.rendered = true;
-    return ctx;
-  }
-
-  static set APP_ROOT(newAppRoot){
-    appRoot = newAppRoot;
-  }
-
-  static get APP_ROOT(){
-    return appRoot;
-  }
-
-  static set PUG_CONFIG(newPugConfig){
-    pugConfig = newPugConfig;
-  }
-
-  static get PUG_CONFIG(){
-    return pugConfig;
-  }
-
-  static merge(object, other){
-    const keys = Object.keys(object);
-    const otherKeys = Object.keys(other);
-    let collision = keys.find(k=>otherKeys.includes(k));
-    if(collision){
-      throw new Error(`Collision detected in locals object at key ${collision}. Please check your locals objects`);
-    }
-    return Object.assign({}, other, object); //make new object, don't modify the others
-  }
-}
-
-
-
-module.exports = function responder(options){
-  const appRoot = options.appRoot || options;
-  if(!appRoot) throw new Error(`Please provide appRoot to the responder!`);
-  const app = options.app;
-  if(!app) throw new Error(`Please give the app reference so we can bootstrap helper methods!`);
-
-  app.context.view = function ctxView(view, locals){
-    this.renderer = new Renderer(locals, RESPONSE_TYPE_HTML, view);
-  }
-
-  app.context.json = function ctxJson(data){
-    JSON.stringify(data); //test that this is valid JSON - will throw otherwise
-    this.renderer = new Renderer(data, RESPONSE_TYPE_JSON);
-  }
-
-  app.context.error = function ctxError(data){
-     //only set the error if it wasn't set previously by something else
-     if(!this.renderer || this.renderer.type !== RESPONSE_TYPE_ERROR){
-      if(!data.message && !(data instanceof Error)) {
-        data.message = 'Unspecified error has occurred';
-        Logger.warn(`Error locals do not include any message and is not an instance of Error object. Please try to be specific with the error messages!`);
+        case '.html':
+        Logger.warn(`Outputting raw HTML file, ${view}, please consider serving static files using a separate server`);
+        ctx.body = fs.readFileSync(view, 'utf8');
+        break;
       }
-      this.renderer = new Renderer(data, RESPONSE_TYPE_ERROR);
+      return;
     }
+    if(this.data instanceof Buffer || this.data instanceof ReadableStream || typeof this.data === 'string'){
+      if(this.data instanceof ReadableStream) ctx.req.pipe(this.data);
+      else ctx.body = this.data;
+      return;
+    }
+    if(!ctx.state.wantsJSON) Logger.warn('ctx.state.wantsJSON not set, but looks like I have to render a JSON anyway. Consider detecting and setting this flag to be sure.');
+    ctx.body = JSON.parse(this.data);    
   }
 
-  app.context.log = logger
-
-  return async function responder(ctx, next){    
+  async middleware(ctx, next){
     try {
-      ctx.renderer = new Renderer();
-      //aaaand we are off
+      //topmost try-catch block, this will catch ALL errors
+      ctx.renderer = this;
       await next();
-      //all middleware has run through, render response
-      ctx.renderer.render(ctx);
-    } catch(error){
-      Logger.error(error);
-      ctx.error({ message: `An error has occurred during processing of your request: \n ${error.message}` });
-    } finally {
-      //produce output for user no matter what
-      ctx.renderer.render(ctx);
+      if(this.viewToRender || this.data)
+        this.render(ctx);
+      //otherwise no methods were called, so we consider the request fully processed already
+      //TODO: maybe log something?
+    } catch(err){
+      Logger.error(`An error occurred processing request: ${err.message}`);
+      Logger.error(err.stack);
+      this.view('error.pug', { error: err })
+      this.render(ctx);
     }
   }
 }
+
+module.exports = Responder;

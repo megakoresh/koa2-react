@@ -1,9 +1,9 @@
 const mongodb = require('mongodb');
 const MongoModel = require('./MongoModel');
 const { MongoDatabase } = require('database');
-const { Utils, Logger } = require('common');
+const { Utils, Logger, config } = require('common');
 
-let db = new MongoDatabase(encodeURI(`mongodb://${process.env['MONGO_USER']}:${process.env['MONGO_PASSWORD']}@${process.env['MONGO_HOST']}/koa2_react`));
+let db = config.defaultMongo;
 let collectionName = 'users';
 
 class User extends MongoModel {

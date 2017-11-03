@@ -1,5 +1,5 @@
 const Controller = require('./Controller');
-const {Authenticator} = require('middleware');
+const { Authenticator } = require('middleware');
 
 class ApiController extends Controller {
   static async api(ctx, next){
@@ -12,4 +12,4 @@ class ApiController extends Controller {
   }
 }
 
-exports.ApiController = ApiController;
+module.exports = ApiController;

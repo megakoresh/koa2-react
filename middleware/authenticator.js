@@ -43,4 +43,4 @@ class Autheticator {
   }
 }
 
-exports.Authenticator = Autheticator;
+module.exports = Autheticator;

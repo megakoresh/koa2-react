@@ -2,9 +2,27 @@ const webpack = require('webpack');
 const path = require('path');
 const babelMinify = require('babel-minify-webpack-plugin');
 
-const config = require('./config')
+const config = require('./config');
 
-module.exports = {
+if(config.env === 'production') console.info('Loading wepback in production mode. Is this desired?');
+
+const productionPlugins = [
+  new webpack
+    .optimize
+    .DedupePlugin(),
+  new webpack
+    .optimize
+    .UglifyJsPlugin(),
+  new babelMinify()
+];
+
+const developmentPlugins = [
+  //new webpack.optimize.OccurrenceOrderPlugin(),
+  new webpack.NoEmitOnErrorsPlugin(),
+  new webpack.HotModuleReplacementPlugin()
+];
+
+const webpackConfig = {
   entry: {
     app: [
       //dev server is if you don't have backend 'webpack/hot/dev-server',
@@ -19,23 +37,7 @@ module.exports = {
     publicPath: '/',
     filename: '[name].js'
   },
-  plugins: config.env === 'production'
-    ? [
-      new webpack
-        .optimize
-        .DedupePlugin(),
-      new webpack
-        .optimize
-        .UglifyJsPlugin(),
-      new babelMinify()
-    ]
-    : [
-      new webpack
-        .optimize
-        .OccurrenceOrderPlugin(),
-      new webpack.NoEmitOnErrorsPlugin(),
-      //new webpack.HotModuleReplacementPlugin(),
-    ],
+  plugins: config.env === 'production' ? productionPlugins : developmentPlugins,
   resolve: {
     extensions: ['.js', '.jsx', '.css', '.scss']
   },
@@ -45,10 +47,8 @@ module.exports = {
         test: /\.jsx?$/,
         loader: 'babel-loader',
         query: {
-          presets: [
-            'es2015', 'react'
-          ],
-          plugins: []
+          presets: ['env', 'react'],
+          plugins: [ 'transform-regenerator', 'transform-async-to-generator']
         },
         include: [path.resolve(config.appRoot, 'client', 'scripts')]
       }, {
@@ -69,4 +69,8 @@ module.exports = {
       }
     ]
   }
-};
+}
+
+if(config.env !== 'production') webpackConfig.devtool = 'cheap-module-source-map';
+
+module.exports = webpackConfig;

@@ -1,10 +1,10 @@
 const mongodb = require('mongodb');
 const MongoModel = require('./MongoModel');
-const { Logger, Utils } = require('common');
+const { Logger, Utils, config } = require('common');
 const { MongoDatabase } = require('database');
 
 let collectionName = 'comments';
-let db = new MongoDatabase(encodeURI(`mongodb://${process.env['MONGO_USER']}:${process.env['MONGO_PASSWORD']}@${process.env['MONGO_HOST']}/koa2_react`));
+let db = config.defaultMongo;
 
 class Comment extends MongoModel {
   constructor(data) {

@@ -12,4 +12,4 @@ class UserApiController extends ApiController {
   }
 }
 
-exports.UserApiController = UserApiController;
+exports.controller = UserApiController;
