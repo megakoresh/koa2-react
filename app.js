@@ -16,7 +16,6 @@ const { config, Logger, Utils, webpackConfig } = common;
 const { Responder } = middleware;
 
 const app = new Koa();
-const router = new Router();
 const responder = new Responder(app);
 //app.proxy = true; //this is needed if running from behind a reverse proxy
 

@@ -61,9 +61,10 @@ class Responder {
 
   render(ctx){
     if(!this.data) this.data = {};
+    if(ctx.csrf) data.csrf = ctx.csrf;
     if(this.viewToRender){
       const ext = path.extname(this.viewToRender);
-      const view = path.join(this.views, this.viewToRender);
+      const view = path.join(this.views, this.viewToRender);      
       switch(ext){
         case '.pug':
         ctx.body = pug.renderFile(view, Object.assign({},this.data,this.pugOptions))
