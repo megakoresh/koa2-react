@@ -20,11 +20,11 @@ class Controller {
         },
         {
           name: 'Fix controllers',
-          completed: false
+          completed: true
         },
         {
           name: 'Fix clientside',
-          completed: false
+          completed: true
         }
       ]
     });

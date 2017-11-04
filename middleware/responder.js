@@ -2,18 +2,40 @@ const pug = require('pug');
 const path = require('path');
 const ejs = require('ejs');
 const fs = require('fs');
+const { Readable } = require('stream');
 
 const { config, Logger, Utils } = require('common');
 
 class Responder {
-  constructor(app, appRoot){
-    this.app = app;
-    if(!appRoot) appRoot = config.appRoot;
-    this.views = path.join(appRoot, 'views');
-    app.context.view = this.view.bind(this);
-    app.context.json = this.json.bind(this);
-    app.context.raw = this.raw.bind(this);
-    app.context.websocket = this.websocket.bind(this);
+  constructor(ctx){    
+    this.views = path.join(config.appRoot, 'views');
+    //TODO: this is the first thing that sees ctx after new request is made, maybe set some flags? wantsJSON and such?  
+    Object.defineProperties(ctx,{
+      view: {
+        value: this.view.bind(this),
+        writable: false,
+        configurable: false,
+        enumerable: false
+      },
+      json: {
+        value: this.json.bind(this),
+        writable: false,
+        configurable: false,
+        enumerable: false
+      },
+      raw: {
+        value: this.raw.bind(this),
+        writable: false,
+        configurable: false,
+        enumerable: false
+      },
+      websocket: {
+        value: this.websocket.bind(this),
+        writable: false,
+        configurable: false,
+        enumerable: false
+      }
+    });    
   }
 
   get pugOptions(){
@@ -50,7 +72,7 @@ class Responder {
   }
 
   raw(stringBufferOrStream){
-    if(stringBufferOrStream instanceof Buffer || stringBufferOrStream instanceof ReadableStream || typeof stringBufferOrStream === 'string')
+    if(stringBufferOrStream instanceof Buffer || stringBufferOrStream instanceof Readable || typeof stringBufferOrStream === 'string')
       this.data = stringBufferOrStream;
     else Logger.error('Can not send raw response - not a buffer, string or readabale stream');
   }
@@ -79,29 +101,31 @@ class Responder {
       }
       return;
     }
-    if(this.data instanceof Buffer || this.data instanceof ReadableStream || typeof this.data === 'string'){
-      if(this.data instanceof ReadableStream) ctx.req.pipe(this.data);
+    if(this.data instanceof Buffer || this.data instanceof Readable || typeof this.data === 'string'){
+      if(this.data instanceof Readable) ctx.req.pipe(this.data);
       else ctx.body = this.data;
       return;
-    }
-    if(!ctx.state.wantsJSON) Logger.warn('ctx.state.wantsJSON not set, but looks like I have to render a JSON anyway. Consider detecting and setting this flag to be sure.');
-    ctx.body = JSON.parse(this.data);    
+    }    
+    ctx.body = JSON.stringify(this.data);
   }
 
-  async middleware(ctx, next){
+  static async middleware(ctx, next){    
+    const responder = new Responder(ctx);
     try {
-      //topmost try-catch block, this will catch ALL errors
-      ctx.renderer = this;
+      //topmost try-catch block, this will catch ALL errors      
+      ctx.responder = responder;
+
       await next();
-      if(this.viewToRender || this.data)
-        this.render(ctx);
+
+      if(responder.viewToRender || responder.data)
+        responder.render(ctx);
       //otherwise no methods were called, so we consider the request fully processed already
       //TODO: maybe log something?
     } catch(err){
       Logger.error(`An error occurred processing request: ${err.message}`);
       Logger.error(err.stack);
-      this.view('error.pug', { error: err })
-      this.render(ctx);
+      responder.view('error.pug', { error: err })
+      responder.render(ctx);
     }
   }
 }

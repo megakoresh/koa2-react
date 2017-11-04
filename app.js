@@ -16,7 +16,6 @@ const { config, Logger, Utils, webpackConfig } = common;
 const { Responder } = middleware;
 
 const app = new Koa();
-const responder = new Responder(app);
 //app.proxy = true; //this is needed if running from behind a reverse proxy
 
 //more info https://github.com/shellscape/koa-webpack
@@ -26,7 +25,7 @@ if(config.env !== 'production'){
     app.use(serve(path.join(config.appRoot, 'client', 'dist')));  
 }
 
-app.use(responder.middleware.bind(responder));
+app.use(Responder.middleware);
 //note: by default multipart requests are not parsed. More info: https://github.com/dlau/koa-body 
 app.use(bodyParser());
 app.use(new CSRF(config.csrf));
