@@ -83,7 +83,7 @@ class Responder {
 
   render(ctx){
     if(!this.data) this.data = {};
-    if(ctx.csrf) data.csrf = ctx.csrf;
+    if(ctx.csrf) this.data.csrf = ctx.csrf;
     if(this.viewToRender){
       const ext = path.extname(this.viewToRender);
       const view = path.join(this.views, this.viewToRender);      
