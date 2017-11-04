@@ -32,9 +32,7 @@ app.use(responder.middleware.bind(responder));
 app.use(bodyParser());
 app.use(new CSRF(config.csrf));
 
-controllers.load(router);
-app.use(router.routes());
-app.use(router.allowedMethods());
+controllers.load(app);
 
 app.listen(3000);
 

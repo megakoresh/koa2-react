@@ -1,4 +1,4 @@
-const Router = require('koa-router');
+const Koa = require('koa');
 const { Utils, Logger } = require('common');
 
 const Controller = require('./Controller');
@@ -15,17 +15,22 @@ const controllers = Utils.requireNamespace('controllers', 'controller');
  * it is nothing more than an ogranizational mechanism.
  */
 
-exports.load = function(router){
-  if(!(router instanceof Router)) throw new TypeError('Router must be a koa router');    
+exports.load = function(app){
+  if(!(app instanceof Koa)) throw new TypeError('Please provide your app instance so controllers can load their routes');
   
-  Logger.info('Loading common routes');
-  Controller.routes(router);
-  Logger.info('Loading api routes');
-  ApiController.routes(router);
+  Logger.info('Loading static routes');  
+  app.use(Controller.router.routes());
+  app.use(Controller.router.allowedMethods());
+
+  Logger.info('Loading static api routes');  
+  app.use(ApiController.router.routes());
+  app.use(ApiController.router.allowedMethods());
 
   for (let [name, controller] of Utils.iterateObject(controllers)){  
-    Logger.info(`Loading ${name}`);
-    controller.routes(router);
+    Logger.info(`Loading ${name}`);    
+    app.use(controller.router.routes());
+    app.use(controller.router.allowedMethods());
+
   }
-  return router;
+  return app;  
 }

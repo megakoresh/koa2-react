@@ -7,12 +7,8 @@ const config = require('./config');
 if(config.env === 'production') console.info('Loading wepback in production mode. Is this desired?');
 
 const productionPlugins = [
-  new webpack
-    .optimize
-    .DedupePlugin(),
-  new webpack
-    .optimize
-    .UglifyJsPlugin(),
+  new webpack.optimize.DedupePlugin(),  
+  new webpack.optimize.UglifyJsPlugin(),
   new babelMinify()
 ];
 

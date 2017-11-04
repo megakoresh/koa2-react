@@ -1,7 +1,11 @@
+const Router = require('koa-router');
 const Controller = require('./Controller');
 
+const router = new Router();
+
 class UserController extends Controller {
-  static routes(router){
+  static get router(){
+    if(router.stack.length>0) return router; //don't bind the routes second time
     router.post('/profile/:id', this.profile);
     router.post('/logout', this.logout);
     return router;
