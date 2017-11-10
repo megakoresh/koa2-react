@@ -19,15 +19,11 @@ const developmentPlugins = [
 ];
 
 const webpackConfig = {
-  entry: {
-    app: [
-      //dev server is if you don't have backend 'webpack/hot/dev-server',
-      //'webpack-hot-middleware/client',
-      path.join(config.appRoot, 'client', 'scripts', 'app.jsx'),
-      //more info - https://github.com/webpack-contrib/sass-loader 
-      path.join(config.appRoot, 'client', 'styles', 'app.scss')
-    ]
+  entry: {    
+    'js/app': path.join(config.appRoot, 'client', 'scripts', 'app.jsx'),
+    'css/app': path.join(config.appRoot, 'client', 'styles', 'index.scss')
   },
+  context: path.join(config.appRoot, 'client'),
   output: {
     path: path.join(config.appRoot, 'client', 'dist'),
     publicPath: '/',
@@ -48,17 +44,15 @@ const webpackConfig = {
         },
         include: [path.resolve(config.appRoot, 'client', 'scripts')]
       }, {
-        test: /\.scss$/,
-        use: [
-          {
-            loader: "style-loader" // creates style nodes from JS strings
-          }, {
-            loader: "css-loader" // translates CSS into CommonJS
-          }, {
+        test: /\.s?css$/,
+        use: [ 'style-loader', 'css-loader', {
             loader: "sass-loader", // compiles Sass to CSS
             options: {
+              //node-sass options go here
+              //outputStyle: 'compressed',
+              //ext: 'css'
               // include some other SCSS folders into lookup paths includePaths:
-              // [path.join(config.appRoot, 'node_modules', 'foundation', 'scss')]
+              //includePaths: [path.join(config.appRoot, 'node_modules', 'foundation', 'scss')]
             }
           }
         ]
