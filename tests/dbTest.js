@@ -142,7 +142,7 @@ describe('MariaDatabase tests', async function () {
       await connection.query(`ALTER TABLE ${joinTable} DROP INDEX temp`);
     });
     let count = await db.count(joinTable);
-    expect(count > 0);
+    expect(count > 0).to.be.true;
   });
   it('Performs two transactions in parallel', async function () {
     let connection = await db.connect();
@@ -169,7 +169,7 @@ describe('MariaDatabase tests', async function () {
     let results = await Promise.all([db.transaction(transaction1), db.transaction(transaction2)]);
     //should now have a different count, less than before
     let afterCount = (await connection.query(cQuery))[0][0].count;
-    expect(afterCount<intiailCount);
+    expect(afterCount<intiailCount).to.be.true;
   });
   it('Fails a transaction', async function () {
     let transactionResult = await db.transaction(async function (db, connection) {
