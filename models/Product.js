@@ -1,8 +1,8 @@
 const MariaModel = require('./MariaModel');
-const { MariaDatabase } = require('database');
+const { MariaDatabase, DEF_MARIA } = require('database');
 const { Utils, Logger, config } = require('common');
 
-let db = config.defaultMaria;
+let db = DEF_MARIA;
 let tableName = 'products';
 
 class Product extends MariaModel {

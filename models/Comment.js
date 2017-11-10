@@ -1,10 +1,10 @@
 const mongodb = require('mongodb');
 const MongoModel = require('./MongoModel');
 const { Logger, Utils, config } = require('common');
-const { MongoDatabase } = require('database');
+const { MongoDatabase, DEF_MONGO } = require('database');
 
 let collectionName = 'comments';
-let db = config.defaultMongo;
+let db = DEF_MONGO;
 
 class Comment extends MongoModel {
   constructor(data) {

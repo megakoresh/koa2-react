@@ -1,9 +1,9 @@
 const mongodb = require('mongodb');
 const MongoModel = require('./MongoModel');
-const { MongoDatabase } = require('database');
+const { MongoDatabase, DEF_MONGO } = require('database');
 const { Utils, Logger, config } = require('common');
 
-let db = config.defaultMongo;
+let db = DEF_MONGO;
 let collectionName = 'users';
 
 class User extends MongoModel {
