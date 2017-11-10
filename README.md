@@ -31,7 +31,7 @@ You now have the code base for a new project. The base classes are documented as
   - Foundation/Bootstrap - see comments in webpack config
   - Migrations - `npm install -g db-migrate` and `db-migrate create:sql my-new-migration -e test-maria`, see https://db-migrate.readthedocs.io/en/latest/ for details
   - Global configuration - place it to common package where appropriate, then require. For database-related things, place to database package
-  - File uploads - change the body parser to something that supports files, or add a separate file handling middleware like multer
+  - File uploads - set the `{multipart: true}` option for the bodyparser
 
 I highly recommend you use Visual Studio Code for developing Node.js applications and this one in particular. It already includes launch configurations for both frontend and backend debugging, and in general VSCode is nowadays the best Node.js development IDE. You will save a lot of time with it.
 
