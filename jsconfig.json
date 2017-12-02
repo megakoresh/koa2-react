@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "es2017",
+    "module": "system"
+  },
+  "include": [
+    "remove/this/section/for/IntelliSense/to/work",
+    "middleware/**/*",
+    "models/**/*",
+    "database/**/*",
+    "common/**/*",
+    "client/scripts/**/*",
+    "./*"
+],
+  "exclude": [
+      "node_modules",
+      "client/dist/**/*"     
+  ]  
+}
